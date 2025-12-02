@@ -1,54 +1,22 @@
 {
     "dataRoles": [
-        {
-            "displayName": "Category Data",
-            "name": "category",
-            "kind": "Grouping"
-        },
-        {
-            "displayName": "Measure Data",
-            "name": "measure",
-            "kind": "Measure"
-        }
+        { "displayName": "Category Data", "name": "category", "kind": "Grouping" },
+        { "displayName": "Measure Data", "name": "measure", "kind": "Measure" }
     ],
-    
     "objects": {
         "dataPoint": {
             "properties": {
-                "defaultColor": {
-                    "type": {
-                        "fill": {
-                            "solid": {
-                                "color": true
-                            }
-                        }
-                    }
-                },
-                "showAllDataPoints": {
-                    "type": {
-                        "bool": true
-                    }
-                },
                 "fill": {
-                    "type": {
-                        "fill": {
-                            "solid": {
-                                "color": true
-                            }
-                        }
-                    }
+                    "displayName": "Bar Color",
+                    "type": { "fill": { "solid": { "color": true } } }
                 },
-                "fillRule": {
-                    "type": {
-                        "fill": {}
-                    }
+                "fontSize": {
+                    "displayName": "Text Size",
+                    "type": { "numeric": true }
                 },
-                 "fontSize": {
-                    "type": {
-                        "formatting": {
-                            "fontSize": true
-                        }
-                    }
+                "barRadius": {
+                    "displayName": "Bar Radius",
+                    "type": { "numeric": true }
                 }
             }
         }
@@ -57,21 +25,10 @@
         {
             "categorical": {
                 "categories": {
-                    "for": {
-                        "in": "category"
-                    },
-                    "dataReductionAlgorithm": {
-                        "top": {}
-                    }
+                    "for": { "in": "category" }
                 },
                 "values": {
-                    "select": [
-                        {
-                            "bind": {
-                                "to": "measure"
-                            }
-                        }
-                    ]
+                    "for": { "in": "measure" }
                 }
             }
         }

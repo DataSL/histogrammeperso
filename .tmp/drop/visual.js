@@ -73,16 +73,39 @@ class Visual {
             year: typeof year === "string" ? parseInt(year, 10) : year,
             value: values[i]
         })).sort((a, b) => a.year - b.year);
-        // Remplace categories et values par les données triées
         const sortedCategories = data.map(d => d.year.toString());
         const sortedValues = data.map(d => d.value);
+        // Récupération des propriétés personnalisables
+        const objects = dataView.metadata.objects;
+        let fillColor = "#2F6FE7"; // couleur par défaut
+        if (objects && objects["dataPoint"] && objects["dataPoint"]["fill"]) {
+            const colorObj = objects["dataPoint"]["fill"];
+            if (colorObj.solid && colorObj.solid.color) {
+                fillColor = colorObj.solid.color;
+            }
+        }
+        const colorNon = lightenColor(fillColor, 0.6, 0.5); // couleur claire et transparente
+        // Arrondi personnalisable
+        let barRadius = 30;
+        if (objects && objects["dataPoint"] && objects["dataPoint"]["barRadius"]) {
+            const radiusProp = objects["dataPoint"]["barRadius"];
+            if (typeof radiusProp === "number") {
+                barRadius = radiusProp;
+            }
+        }
+        // Taille du texte personnalisable
+        let fontSize = 18;
+        if (objects && objects["dataPoint"] && objects["dataPoint"]["fontSize"]) {
+            const fontSizeProp = objects["dataPoint"]["fontSize"];
+            if (typeof fontSizeProp === "number") {
+                fontSize = fontSizeProp;
+            }
+        }
         // Paramètres du graphique
         const barWidth = Math.min(60, width / (sortedCategories.length * 1.2));
         const barSpacing = barWidth * 0.3;
         const maxBarHeight = height * 0.6;
         const baseY = height * 0.8;
-        const colorOui = "#2F6FE7";
-        const colorNon = "#CFE2F9";
         // Dessin de la légende
         const legendGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
         let legendX = 10;
@@ -111,7 +134,7 @@ class Visual {
         legendOui.setAttribute("width", "30");
         legendOui.setAttribute("height", "12");
         legendOui.setAttribute("rx", "6");
-        legendOui.setAttribute("fill", colorOui);
+        legendOui.setAttribute("fill", fillColor); // <-- correction ici
         legendGroup.appendChild(legendOui);
         const legendOuiText = document.createElementNS("http://www.w3.org/2000/svg", "text");
         legendOuiText.setAttribute("x", (legendX + 35).toString());
@@ -141,7 +164,7 @@ class Visual {
             barNon.setAttribute("y", (baseY - maxBarHeight).toString());
             barNon.setAttribute("width", barWidth.toString());
             barNon.setAttribute("height", maxBarHeight.toString());
-            barNon.setAttribute("rx", (barWidth / 2).toString());
+            barNon.setAttribute("rx", barRadius.toString());
             barNon.setAttribute("fill", colorNon);
             this.svg.appendChild(barNon);
             // Barre "Oui" (valeur)
@@ -150,8 +173,8 @@ class Visual {
             barOui.setAttribute("y", (baseY - barHeight).toString());
             barOui.setAttribute("width", barWidth.toString());
             barOui.setAttribute("height", barHeight.toString());
-            barOui.setAttribute("rx", (barWidth / 2).toString());
-            barOui.setAttribute("fill", colorOui);
+            barOui.setAttribute("rx", barRadius.toString());
+            barOui.setAttribute("fill", fillColor);
             this.svg.appendChild(barOui);
             // Texte du pourcentage
             const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
@@ -159,7 +182,7 @@ class Visual {
             txt.setAttribute("y", (baseY - barHeight / 2).toString());
             txt.setAttribute("text-anchor", "middle");
             txt.setAttribute("dominant-baseline", "middle");
-            txt.setAttribute("font-size", "18");
+            txt.setAttribute("font-size", fontSize.toString());
             txt.setAttribute("fill", "#fff");
             txt.textContent = percent + "%";
             this.svg.appendChild(txt);
@@ -177,6 +200,20 @@ class Visual {
     getFormattingModel() {
         return this.formattingSettingsService.buildFormattingModel(this.formattingSettings);
     }
+}
+function lightenColor(hex, percent, alpha = 0.5) {
+    // Convert hex to RGB
+    let r = 0, g = 0, b = 0;
+    if (hex.length === 7) {
+        r = parseInt(hex.slice(1, 3), 16);
+        g = parseInt(hex.slice(3, 5), 16);
+        b = parseInt(hex.slice(5, 7), 16);
+    }
+    // Lighten
+    r = Math.round(r + (255 - r) * percent);
+    g = Math.round(g + (255 - g) * percent);
+    b = Math.round(b + (255 - b) * percent);
+    return `rgba(${r},${g},${b},${alpha})`;
 }
 
 
@@ -235,7 +272,7 @@ class DataPointCardSettings extends FormattingSettingsCard {
     });
     fill = new powerbi_visuals_utils_formattingmodel__WEBPACK_IMPORTED_MODULE_0__/* .formattingSettings.ColorPicker */ .z.sk({
         name: "fill",
-        displayName: "Fill",
+        displayName: "Bar Color",
         value: { value: "" }
     });
     fillRule = new powerbi_visuals_utils_formattingmodel__WEBPACK_IMPORTED_MODULE_0__/* .formattingSettings.ColorPicker */ .z.sk({
@@ -246,11 +283,20 @@ class DataPointCardSettings extends FormattingSettingsCard {
     fontSize = new powerbi_visuals_utils_formattingmodel__WEBPACK_IMPORTED_MODULE_0__/* .formattingSettings.NumUpDown */ .z.iB({
         name: "fontSize",
         displayName: "Text Size",
-        value: 12
+        value: 18
+    });
+    barRadius = new powerbi_visuals_utils_formattingmodel__WEBPACK_IMPORTED_MODULE_0__/* .formattingSettings.NumUpDown */ .z.iB({
+        name: "barRadius",
+        displayName: "Bar Radius",
+        value: 30
     });
     name = "dataPoint";
     displayName = "Data colors";
-    slices = [this.defaultColor, this.showAllDataPoints, this.fill, this.fillRule, this.fontSize];
+    slices = [
+        this.fill,
+        this.fontSize,
+        this.barRadius
+    ];
 }
 /**
 * visual settings model class

@@ -11,6 +11,7 @@ declare class DataPointCardSettings extends FormattingSettingsCard {
     fill: formattingSettings.ColorPicker;
     fillRule: formattingSettings.ColorPicker;
     fontSize: formattingSettings.NumUpDown;
+    barRadius: formattingSettings.NumUpDown;
     name: string;
     displayName: string;
     slices: Array<FormattingSettingsSlice>;

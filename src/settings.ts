@@ -51,7 +51,7 @@ class DataPointCardSettings extends FormattingSettingsCard {
 
     fill = new formattingSettings.ColorPicker({
         name: "fill",
-        displayName: "Fill",
+        displayName: "Bar Color",
         value: { value: "" }
     });
 
@@ -64,12 +64,22 @@ class DataPointCardSettings extends FormattingSettingsCard {
     fontSize = new formattingSettings.NumUpDown({
         name: "fontSize",
         displayName: "Text Size",
-        value: 12
+        value: 18
+    });
+
+    barRadius = new formattingSettings.NumUpDown({
+        name: "barRadius",
+        displayName: "Bar Radius",
+        value: 30
     });
 
     name: string = "dataPoint";
     displayName: string = "Data colors";
-    slices: Array<FormattingSettingsSlice> = [this.defaultColor, this.showAllDataPoints, this.fill, this.fillRule, this.fontSize];
+    slices: Array<FormattingSettingsSlice> = [
+        this.fill,
+        this.fontSize,
+        this.barRadius
+    ];
 }
 
 /**

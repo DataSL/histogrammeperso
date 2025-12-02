@@ -32,6 +32,8 @@ import "./../style/visual.less";
 import VisualConstructorOptions = powerbi.extensibility.visual.VisualConstructorOptions;
 import VisualUpdateOptions = powerbi.extensibility.visual.VisualUpdateOptions;
 import IVisual = powerbi.extensibility.visual.IVisual;
+import ISelectionManager = powerbi.extensibility.ISelectionManager;
+import ISelectionId = powerbi.visuals.ISelectionId;
 import { VisualFormattingSettingsModel } from "./settings";
 
 export class Visual implements IVisual {
@@ -39,14 +41,20 @@ export class Visual implements IVisual {
     private formattingSettings: VisualFormattingSettingsModel;
     private formattingSettingsService: FormattingSettingsService;
     private svg: SVGSVGElement;
+    private selectionManager: ISelectionManager;
+    private host: powerbi.extensibility.visual.IVisualHost;
+    private dataPoints: Array<{ year: number; value: number; selectionId: ISelectionId }>;
 
     constructor(options: VisualConstructorOptions) {
         this.formattingSettingsService = new FormattingSettingsService();
         this.target = options.element;
+        this.host = options.host;
+        this.selectionManager = this.host.createSelectionManager();
         this.svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
         this.svg.setAttribute("width", "100%");
         this.svg.setAttribute("height", "100%");
         this.target.appendChild(this.svg);
+        this.dataPoints = [];
     }
 
     public update(options: VisualUpdateOptions) {
@@ -62,29 +70,34 @@ export class Visual implements IVisual {
         const dataView = options.dataViews[0];
         if (!dataView || !dataView.categorical) return;
 
-        const categories = dataView.categorical.categories[0].values as (string | number)[];
+        const categories = dataView.categorical.categories[0];
+        const categoryValues = categories.values as (string | number)[];
         const values = dataView.categorical.values[0].values as number[];
 
-        // Trie les années et les valeurs ensemble
-        const data = categories.map((year, i) => ({
+        // Création des ISelectionId pour chaque catégorie - stocker dans this.dataPoints
+        this.dataPoints = categoryValues.map((year, i) => ({
             year: typeof year === "string" ? parseInt(year, 10) : year,
-            value: values[i]
+            value: values[i],
+            selectionId: this.host.createSelectionIdBuilder()
+                .withCategory(categories, i)
+                .createSelectionId()
         })).sort((a, b) => a.year - b.year);
 
-        const sortedCategories = data.map(d => d.year.toString());
-        const sortedValues = data.map(d => d.value);
+        const sortedCategories = this.dataPoints.map(d => d.year.toString());
+        const sortedValues = this.dataPoints.map(d => d.value);
+        const selectionIds = this.dataPoints.map(d => d.selectionId);
 
         // Récupération des propriétés personnalisables
         const objects = dataView.metadata.objects;
-        let fillColor = "#2F6FE7"; // couleur par défaut
+        let fillColor = "#2F6FE7";
         if (objects && objects["dataPoint"] && objects["dataPoint"]["fill"]) {
             const colorObj = objects["dataPoint"]["fill"] as any;
             if (colorObj.solid && colorObj.solid.color) {
                 fillColor = colorObj.solid.color;
             }
         }
-        const colorNon = lightenColor(fillColor, 0.6, 0.5); // couleur claire et transparente
-        // Arrondi personnalisable
+        const colorNon = lightenColor(fillColor, 0.6, 0.5);
+        
         let barRadius = 30;
         if (objects && objects["dataPoint"] && objects["dataPoint"]["barRadius"]) {
             const radiusProp = objects["dataPoint"]["barRadius"] as any;
@@ -92,7 +105,7 @@ export class Visual implements IVisual {
                 barRadius = radiusProp;
             }
         }
-        // Taille du texte personnalisable
+        
         let fontSize = 18;
         if (objects && objects["dataPoint"] && objects["dataPoint"]["fontSize"]) {
             const fontSizeProp = objects["dataPoint"]["fontSize"] as any;
@@ -111,7 +124,7 @@ export class Visual implements IVisual {
         const legendGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
         let legendX = 10;
         let legendY = 30;
-        // Non
+        
         const legendNon = document.createElementNS("http://www.w3.org/2000/svg", "rect");
         legendNon.setAttribute("x", legendX.toString());
         legendNon.setAttribute("y", legendY.toString());
@@ -120,6 +133,7 @@ export class Visual implements IVisual {
         legendNon.setAttribute("rx", "6");
         legendNon.setAttribute("fill", colorNon);
         legendGroup.appendChild(legendNon);
+        
         const legendNonText = document.createElementNS("http://www.w3.org/2000/svg", "text");
         legendNonText.setAttribute("x", (legendX + 35).toString());
         legendNonText.setAttribute("y", (legendY + 10).toString());
@@ -127,7 +141,7 @@ export class Visual implements IVisual {
         legendNonText.setAttribute("fill", "#222");
         legendNonText.textContent = "Non";
         legendGroup.appendChild(legendNonText);
-        // Oui
+        
         legendX += 80;
         const legendOui = document.createElementNS("http://www.w3.org/2000/svg", "rect");
         legendOui.setAttribute("x", legendX.toString());
@@ -135,8 +149,9 @@ export class Visual implements IVisual {
         legendOui.setAttribute("width", "30");
         legendOui.setAttribute("height", "12");
         legendOui.setAttribute("rx", "6");
-        legendOui.setAttribute("fill", fillColor); // <-- correction ici
+        legendOui.setAttribute("fill", fillColor);
         legendGroup.appendChild(legendOui);
+        
         const legendOuiText = document.createElementNS("http://www.w3.org/2000/svg", "text");
         legendOuiText.setAttribute("x", (legendX + 35).toString());
         legendOuiText.setAttribute("y", (legendY + 10).toString());
@@ -145,7 +160,6 @@ export class Visual implements IVisual {
         legendOuiText.textContent = "Oui";
         legendGroup.appendChild(legendOuiText);
 
-        // Titre
         const title = document.createElementNS("http://www.w3.org/2000/svg", "text");
         title.setAttribute("x", "10");
         title.setAttribute("y", "20");
@@ -156,11 +170,19 @@ export class Visual implements IVisual {
         this.svg.appendChild(title);
         this.svg.appendChild(legendGroup);
 
-        // Dessin des barres
+        // Stocker les groupes de barres pour la sélection
+        const barGroups: SVGGElement[] = [];
+
+        // Dessin des barres avec gestion de la sélection
         sortedCategories.forEach((cat, i) => {
             const percent = Math.round(sortedValues[i]);
             const x = 40 + i * (barWidth + barSpacing);
             const barHeight = maxBarHeight * percent / 100;
+
+            // Groupe pour chaque barre (pour gérer les événements)
+            const barGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+            barGroup.style.cursor = "pointer";
+            barGroup.setAttribute("data-index", i.toString());
 
             // Barre "Non" (fond)
             const barNon = document.createElementNS("http://www.w3.org/2000/svg", "rect");
@@ -170,7 +192,7 @@ export class Visual implements IVisual {
             barNon.setAttribute("height", maxBarHeight.toString());
             barNon.setAttribute("rx", barRadius.toString());
             barNon.setAttribute("fill", colorNon);
-            this.svg.appendChild(barNon);
+            barGroup.appendChild(barNon);
 
             // Barre "Oui" (valeur)
             const barOui = document.createElementNS("http://www.w3.org/2000/svg", "rect");
@@ -180,7 +202,7 @@ export class Visual implements IVisual {
             barOui.setAttribute("height", barHeight.toString());
             barOui.setAttribute("rx", barRadius.toString());
             barOui.setAttribute("fill", fillColor);
-            this.svg.appendChild(barOui);
+            barGroup.appendChild(barOui);
 
             // Texte du pourcentage
             const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
@@ -191,7 +213,7 @@ export class Visual implements IVisual {
             txt.setAttribute("font-size", fontSize.toString());
             txt.setAttribute("fill", "#fff");
             txt.textContent = percent + "%";
-            this.svg.appendChild(txt);
+            barGroup.appendChild(txt);
 
             // Texte de l'année
             const yearTxt = document.createElementNS("http://www.w3.org/2000/svg", "text");
@@ -201,7 +223,47 @@ export class Visual implements IVisual {
             yearTxt.setAttribute("font-size", "14");
             yearTxt.setAttribute("fill", "#888");
             yearTxt.textContent = cat;
-            this.svg.appendChild(yearTxt);
+            barGroup.appendChild(yearTxt);
+
+            // Gestion des événements de clic
+            barGroup.addEventListener("click", (event) => {
+                event.stopPropagation();
+                // Permet la sélection multiple avec Ctrl/Cmd
+                this.selectionManager.select(selectionIds[i], (event as MouseEvent).ctrlKey || (event as MouseEvent).metaKey)
+                    .then((ids: ISelectionId[]) => {
+                        // Mise à jour visuelle des barres sélectionnées
+                        this.updateSelection(ids, barGroups);
+                    });
+            });
+
+            barGroups.push(barGroup);
+            this.svg.appendChild(barGroup);
+        });
+
+        // Clic sur le fond pour désélectionner - utiliser once pour éviter les multiples listeners
+        const clearSelection = () => {
+            this.selectionManager.clear();
+            this.updateSelection([], barGroups);
+        };
+        
+        // Supprimer l'ancien listener s'il existe
+        this.svg.removeEventListener("click", clearSelection);
+        this.svg.addEventListener("click", clearSelection);
+    }
+
+    private updateSelection(selectedIds: ISelectionId[], barGroups: SVGGElement[]) {
+        // Mettre à jour l'opacité des barres selon la sélection
+        barGroups.forEach((group, index) => {
+            if (selectedIds.length === 0) {
+                group.style.opacity = "1";
+            } else {
+                const isSelected = selectedIds.some(selectedId => {
+                    const selectedKey = (selectedId as any).key;
+                    const dataPointKey = (this.dataPoints[index]?.selectionId as any)?.key;
+                    return selectedKey === dataPointKey;
+                });
+                group.style.opacity = isSelected ? "1" : "0.3";
+            }
         });
     }
 

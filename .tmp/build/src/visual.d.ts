@@ -8,7 +8,11 @@ export declare class Visual implements IVisual {
     private formattingSettings;
     private formattingSettingsService;
     private svg;
+    private selectionManager;
+    private host;
+    private dataPoints;
     constructor(options: VisualConstructorOptions);
     update(options: VisualUpdateOptions): void;
+    private updateSelection;
     getFormattingModel(): powerbi.visuals.FormattingModel;
 }

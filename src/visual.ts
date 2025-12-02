@@ -228,8 +228,11 @@ export class Visual implements IVisual {
             // Gestion des événements de clic
             barGroup.addEventListener("click", (event) => {
                 event.stopPropagation();
+                const mouseEvent = event as MouseEvent;
                 // Permet la sélection multiple avec Ctrl/Cmd
-                this.selectionManager.select(selectionIds[i], (event as MouseEvent).ctrlKey || (event as MouseEvent).metaKey)
+                const isCtrlPressed = mouseEvent.ctrlKey || mouseEvent.metaKey;
+                
+                this.selectionManager.select(selectionIds[i], isCtrlPressed)
                     .then((ids: ISelectionId[]) => {
                         // Mise à jour visuelle des barres sélectionnées
                         this.updateSelection(ids, barGroups);
@@ -240,15 +243,15 @@ export class Visual implements IVisual {
             this.svg.appendChild(barGroup);
         });
 
-        // Clic sur le fond pour désélectionner - utiliser once pour éviter les multiples listeners
-        const clearSelection = () => {
-            this.selectionManager.clear();
-            this.updateSelection([], barGroups);
+        // Clic sur le fond pour désélectionner
+        const clearSelection = (event: MouseEvent) => {
+            this.selectionManager.clear().then(() => {
+                this.updateSelection([], barGroups);
+            });
         };
         
-        // Supprimer l'ancien listener s'il existe
-        this.svg.removeEventListener("click", clearSelection);
-        this.svg.addEventListener("click", clearSelection);
+        // Supprimer l'ancien listener s'il existe et ajouter le nouveau
+        this.svg.onclick = clearSelection;
     }
 
     private updateSelection(selectedIds: ISelectionId[], barGroups: SVGGElement[]) {

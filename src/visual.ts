@@ -1,0 +1,187 @@
+/*
+*  Power BI Visual CLI
+*
+*  Copyright (c) Microsoft Corporation
+*  All rights reserved.
+*  MIT License
+*
+*  Permission is hereby granted, free of charge, to any person obtaining a copy
+*  of this software and associated documentation files (the ""Software""), to deal
+*  in the Software without restriction, including without limitation the rights
+*  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+*  copies of the Software, and to permit persons to whom the Software is
+*  furnished to do so, subject to the following conditions:
+*
+*  The above copyright notice and this permission notice shall be included in
+*  all copies or substantial portions of the Software.
+*
+*  THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+*  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+*  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+*  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+*  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+*  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+*  THE SOFTWARE.
+* 
+*/
+"use strict";
+
+import powerbi from "powerbi-visuals-api";
+import { FormattingSettingsService } from "powerbi-visuals-utils-formattingmodel";
+import "./../style/visual.less";
+import VisualConstructorOptions = powerbi.extensibility.visual.VisualConstructorOptions;
+import VisualUpdateOptions = powerbi.extensibility.visual.VisualUpdateOptions;
+import IVisual = powerbi.extensibility.visual.IVisual;
+import { VisualFormattingSettingsModel } from "./settings";
+
+export class Visual implements IVisual {
+    private target: HTMLElement;
+    private formattingSettings: VisualFormattingSettingsModel;
+    private formattingSettingsService: FormattingSettingsService;
+    private svg: SVGSVGElement;
+
+    constructor(options: VisualConstructorOptions) {
+        this.formattingSettingsService = new FormattingSettingsService();
+        this.target = options.element;
+        this.svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        this.svg.setAttribute("width", "100%");
+        this.svg.setAttribute("height", "100%");
+        this.target.appendChild(this.svg);
+    }
+
+    public update(options: VisualUpdateOptions) {
+        this.formattingSettings = this.formattingSettingsService.populateFormattingSettingsModel(VisualFormattingSettingsModel, options.dataViews[0]);
+        while (this.svg.firstChild) this.svg.removeChild(this.svg.firstChild);
+
+        const width = options.viewport.width;
+        const height = options.viewport.height;
+        this.svg.setAttribute("width", width.toString());
+        this.svg.setAttribute("height", height.toString());
+
+        // Récupération des données
+        const dataView = options.dataViews[0];
+        if (!dataView || !dataView.categorical) return;
+
+        const categories = dataView.categorical.categories[0].values as (string | number)[];
+        const values = dataView.categorical.values[0].values as number[];
+
+        // Trie les années et les valeurs ensemble
+        const data = categories.map((year, i) => ({
+            year: typeof year === "string" ? parseInt(year, 10) : year,
+            value: values[i]
+        })).sort((a, b) => a.year - b.year);
+
+        // Remplace categories et values par les données triées
+        const sortedCategories = data.map(d => d.year.toString());
+        const sortedValues = data.map(d => d.value);
+
+        // Paramètres du graphique
+        const barWidth = Math.min(60, width / (sortedCategories.length * 1.2));
+        const barSpacing = barWidth * 0.3;
+        const maxBarHeight = height * 0.6;
+        const baseY = height * 0.8;
+        const colorOui = "#2F6FE7";
+        const colorNon = "#CFE2F9";
+
+        // Dessin de la légende
+        const legendGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        let legendX = 10;
+        let legendY = 30;
+        // Non
+        const legendNon = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        legendNon.setAttribute("x", legendX.toString());
+        legendNon.setAttribute("y", legendY.toString());
+        legendNon.setAttribute("width", "30");
+        legendNon.setAttribute("height", "12");
+        legendNon.setAttribute("rx", "6");
+        legendNon.setAttribute("fill", colorNon);
+        legendGroup.appendChild(legendNon);
+        const legendNonText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        legendNonText.setAttribute("x", (legendX + 35).toString());
+        legendNonText.setAttribute("y", (legendY + 10).toString());
+        legendNonText.setAttribute("font-size", "14");
+        legendNonText.setAttribute("fill", "#222");
+        legendNonText.textContent = "Non";
+        legendGroup.appendChild(legendNonText);
+        // Oui
+        legendX += 80;
+        const legendOui = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        legendOui.setAttribute("x", legendX.toString());
+        legendOui.setAttribute("y", legendY.toString());
+        legendOui.setAttribute("width", "30");
+        legendOui.setAttribute("height", "12");
+        legendOui.setAttribute("rx", "6");
+        legendOui.setAttribute("fill", colorOui);
+        legendGroup.appendChild(legendOui);
+        const legendOuiText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        legendOuiText.setAttribute("x", (legendX + 35).toString());
+        legendOuiText.setAttribute("y", (legendY + 10).toString());
+        legendOuiText.setAttribute("font-size", "14");
+        legendOuiText.setAttribute("fill", "#222");
+        legendOuiText.textContent = "Oui";
+        legendGroup.appendChild(legendOuiText);
+
+        // Titre
+        const title = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        title.setAttribute("x", "10");
+        title.setAttribute("y", "20");
+        title.setAttribute("font-size", "20");
+        title.setAttribute("font-weight", "bold");
+        title.setAttribute("fill", "#222");
+        title.textContent = "DSP";
+        this.svg.appendChild(title);
+        this.svg.appendChild(legendGroup);
+
+        // Dessin des barres
+        sortedCategories.forEach((cat, i) => {
+            const percent = Math.round(sortedValues[i]);
+            const x = 40 + i * (barWidth + barSpacing);
+            const barHeight = maxBarHeight * percent / 100;
+
+            // Barre "Non" (fond)
+            const barNon = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+            barNon.setAttribute("x", x.toString());
+            barNon.setAttribute("y", (baseY - maxBarHeight).toString());
+            barNon.setAttribute("width", barWidth.toString());
+            barNon.setAttribute("height", maxBarHeight.toString());
+            barNon.setAttribute("rx", (barWidth / 2).toString());
+            barNon.setAttribute("fill", colorNon);
+            this.svg.appendChild(barNon);
+
+            // Barre "Oui" (valeur)
+            const barOui = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+            barOui.setAttribute("x", x.toString());
+            barOui.setAttribute("y", (baseY - barHeight).toString());
+            barOui.setAttribute("width", barWidth.toString());
+            barOui.setAttribute("height", barHeight.toString());
+            barOui.setAttribute("rx", (barWidth / 2).toString());
+            barOui.setAttribute("fill", colorOui);
+            this.svg.appendChild(barOui);
+
+            // Texte du pourcentage
+            const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            txt.setAttribute("x", (x + barWidth / 2).toString());
+            txt.setAttribute("y", (baseY - barHeight / 2).toString());
+            txt.setAttribute("text-anchor", "middle");
+            txt.setAttribute("dominant-baseline", "middle");
+            txt.setAttribute("font-size", "18");
+            txt.setAttribute("fill", "#fff");
+            txt.textContent = percent + "%";
+            this.svg.appendChild(txt);
+
+            // Texte de l'année
+            const yearTxt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            yearTxt.setAttribute("x", (x + barWidth / 2).toString());
+            yearTxt.setAttribute("y", (baseY + 20).toString());
+            yearTxt.setAttribute("text-anchor", "middle");
+            yearTxt.setAttribute("font-size", "14");
+            yearTxt.setAttribute("fill", "#888");
+            yearTxt.textContent = cat;
+            this.svg.appendChild(yearTxt);
+        });
+    }
+
+    public getFormattingModel(): powerbi.visuals.FormattingModel {
+        return this.formattingSettingsService.buildFormattingModel(this.formattingSettings);
+    }
+}

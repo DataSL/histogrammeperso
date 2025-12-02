@@ -1,0 +1,16 @@
+p {
+  font-size: 20px;
+  font-weight: bold;
+}
+p em {
+  background: yellow;
+  padding: 5px;
+}
+svg {
+  font-family: 'Segoe UI', Arial, sans-serif;
+  background: #f7fbff;
+  border-radius: 12px;
+}
+
+
+/*# sourceMappingURL=https://localhost:8080/assets/visual.css.map*/

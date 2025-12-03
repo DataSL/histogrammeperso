@@ -115,7 +115,10 @@ export class Visual implements IVisual {
         }
 
         // Paramètres du graphique
-        const barWidth = Math.min(60, width / (sortedCategories.length * 1.2));
+        let barWidth = Math.min(60, width / (sortedCategories.length * 1.2));
+        if (objects && objects["dataPoint"] && typeof objects["dataPoint"]["barWidth"] === "number") {
+            barWidth = objects["dataPoint"]["barWidth"];
+        }
         const barSpacing = barWidth * 0.3;
         const maxBarHeight = height * 0.6;
         const baseY = height * 0.8;

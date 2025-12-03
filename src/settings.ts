@@ -37,27 +37,9 @@ import FormattingSettingsModel = formattingSettings.Model;
  * Data Point Formatting Card
  */
 class DataPointCardSettings extends FormattingSettingsCard {
-    defaultColor = new formattingSettings.ColorPicker({
-        name: "defaultColor",
-        displayName: "Default color",
-        value: { value: "" }
-    });
-
-    showAllDataPoints = new formattingSettings.ToggleSwitch({
-        name: "showAllDataPoints",
-        displayName: "Show all",
-        value: true
-    });
-
     fill = new formattingSettings.ColorPicker({
         name: "fill",
         displayName: "Bar Color",
-        value: { value: "" }
-    });
-
-    fillRule = new formattingSettings.ColorPicker({
-        name: "fillRule",
-        displayName: "Color saturation",
         value: { value: "" }
     });
 
@@ -73,12 +55,19 @@ class DataPointCardSettings extends FormattingSettingsCard {
         value: 30
     });
 
+    barWidth = new formattingSettings.NumUpDown({
+        name: "barWidth",
+        displayName: "Bar Width",
+        value: 60 // valeur par défaut
+    });
+
     name: string = "dataPoint";
     displayName: string = "Data colors";
     slices: Array<FormattingSettingsSlice> = [
         this.fill,
         this.fontSize,
-        this.barRadius
+        this.barRadius,
+        this.barWidth // <-- AJOUT ICI
     ];
 }
 

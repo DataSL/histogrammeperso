@@ -6,12 +6,10 @@ import FormattingSettingsModel = formattingSettings.Model;
  * Data Point Formatting Card
  */
 declare class DataPointCardSettings extends FormattingSettingsCard {
-    defaultColor: formattingSettings.ColorPicker;
-    showAllDataPoints: formattingSettings.ToggleSwitch;
     fill: formattingSettings.ColorPicker;
-    fillRule: formattingSettings.ColorPicker;
     fontSize: formattingSettings.NumUpDown;
     barRadius: formattingSettings.NumUpDown;
+    barWidth: formattingSettings.NumUpDown;
     name: string;
     displayName: string;
     slices: Array<FormattingSettingsSlice>;

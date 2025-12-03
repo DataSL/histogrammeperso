@@ -17,6 +17,10 @@
                 "barRadius": {
                     "displayName": "Bar Radius",
                     "type": { "numeric": true }
+                },
+                "barWidth": {
+                    "displayName": "Bar Width",
+                    "type": { "numeric": true }
                 }
             }
         }

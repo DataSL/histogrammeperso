@@ -111,7 +111,10 @@ class Visual {
             }
         }
         // Paramètres du graphique
-        const barWidth = Math.min(60, width / (sortedCategories.length * 1.2));
+        let barWidth = Math.min(60, width / (sortedCategories.length * 1.2));
+        if (objects && objects["dataPoint"] && typeof objects["dataPoint"]["barWidth"] === "number") {
+            barWidth = objects["dataPoint"]["barWidth"];
+        }
         const barSpacing = barWidth * 0.3;
         const maxBarHeight = height * 0.6;
         const baseY = height * 0.8;
@@ -310,24 +313,9 @@ var FormattingSettingsModel = powerbi_visuals_utils_formattingmodel__WEBPACK_IMP
  * Data Point Formatting Card
  */
 class DataPointCardSettings extends FormattingSettingsCard {
-    defaultColor = new powerbi_visuals_utils_formattingmodel__WEBPACK_IMPORTED_MODULE_0__/* .formattingSettings.ColorPicker */ .z.sk({
-        name: "defaultColor",
-        displayName: "Default color",
-        value: { value: "" }
-    });
-    showAllDataPoints = new powerbi_visuals_utils_formattingmodel__WEBPACK_IMPORTED_MODULE_0__/* .formattingSettings.ToggleSwitch */ .z.jF({
-        name: "showAllDataPoints",
-        displayName: "Show all",
-        value: true
-    });
     fill = new powerbi_visuals_utils_formattingmodel__WEBPACK_IMPORTED_MODULE_0__/* .formattingSettings.ColorPicker */ .z.sk({
         name: "fill",
         displayName: "Bar Color",
-        value: { value: "" }
-    });
-    fillRule = new powerbi_visuals_utils_formattingmodel__WEBPACK_IMPORTED_MODULE_0__/* .formattingSettings.ColorPicker */ .z.sk({
-        name: "fillRule",
-        displayName: "Color saturation",
         value: { value: "" }
     });
     fontSize = new powerbi_visuals_utils_formattingmodel__WEBPACK_IMPORTED_MODULE_0__/* .formattingSettings.NumUpDown */ .z.iB({
@@ -340,12 +328,18 @@ class DataPointCardSettings extends FormattingSettingsCard {
         displayName: "Bar Radius",
         value: 30
     });
+    barWidth = new powerbi_visuals_utils_formattingmodel__WEBPACK_IMPORTED_MODULE_0__/* .formattingSettings.NumUpDown */ .z.iB({
+        name: "barWidth",
+        displayName: "Bar Width",
+        value: 60 // valeur par défaut
+    });
     name = "dataPoint";
     displayName = "Data colors";
     slices = [
         this.fill,
         this.fontSize,
-        this.barRadius
+        this.barRadius,
+        this.barWidth // <-- AJOUT ICI
     ];
 }
 /**
@@ -636,10 +630,9 @@ class FormattingSettingsService {
 /* harmony export */   St: () => (/* binding */ CompositeCard),
 /* harmony export */   Tn: () => (/* binding */ SimpleCard),
 /* harmony export */   iB: () => (/* binding */ NumUpDown),
-/* harmony export */   jF: () => (/* binding */ ToggleSwitch),
 /* harmony export */   sk: () => (/* binding */ ColorPicker)
 /* harmony export */ });
-/* unused harmony exports CardGroupEntity, Group, SimpleSlice, AlignmentGroup, Slider, DatePicker, ItemDropdown, AutoDropdown, DurationPicker, ErrorRangeControl, FieldPicker, ItemFlagsSelection, AutoFlagsSelection, TextInput, TextArea, FontPicker, GradientBar, ImageUpload, ListEditor, ReadOnlyText, ShapeMapSelector, CompositeSlice, FontControl, MarginPadding, Container, ContainerItem */
+/* unused harmony exports CardGroupEntity, Group, SimpleSlice, AlignmentGroup, ToggleSwitch, Slider, DatePicker, ItemDropdown, AutoDropdown, DurationPicker, ErrorRangeControl, FieldPicker, ItemFlagsSelection, AutoFlagsSelection, TextInput, TextArea, FontPicker, GradientBar, ImageUpload, ListEditor, ReadOnlyText, ShapeMapSelector, CompositeSlice, FontControl, MarginPadding, Container, ContainerItem */
 /* harmony import */ var _utils_FormattingSettingsUtils__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(639);
 /**
  * Powerbi utils components classes for custom visual formatting pane objects

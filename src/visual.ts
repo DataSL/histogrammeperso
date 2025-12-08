@@ -178,9 +178,10 @@ export class Visual implements IVisual {
 
         // Dessin des barres avec gestion de la sélection
         sortedCategories.forEach((cat, i) => {
-            const percent = Math.round(sortedValues[i]);
+            // Les valeurs sont entre 0 et 1, il faut les convertir en pourcentage décimal
+            const percent = (sortedValues[i] * 100).toFixed(2).replace('.', ',');
             const x = 40 + i * (barWidth + barSpacing);
-            const barHeight = maxBarHeight * percent / 100;
+            const barHeight = maxBarHeight * sortedValues[i]; // Utiliser la valeur brute (0-1)
 
             // Groupe pour chaque barre (pour gérer les événements)
             const barGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");

@@ -176,49 +176,77 @@ export class Visual implements IVisual {
         // Stocker les groupes de barres pour la sélection
         const barGroups: SVGGElement[] = [];
 
+        // Ensure a <defs> for clipPaths
+        let defs = this.svg.querySelector('defs') as SVGDefsElement;
+        if (!defs) {
+            defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+            this.svg.appendChild(defs);
+        }
+
         // Dessin des barres avec gestion de la sélection
         sortedCategories.forEach((cat, i) => {
             const percentValue = sortedValues[i] * 100;
             const percent = percentValue.toFixed(2).replace('.', ',');
             const x = 40 + i * (barWidth + barSpacing);
-            const barHeight = maxBarHeight * sortedValues[i];
+
+            // Hauteur proportionnelle réelle (gardez la proportion)
+            const rawBarHeight = maxBarHeight * sortedValues[i];
+            const visibleHeight = Math.max(rawBarHeight, 1); // au moins 1px visible si >0
+
+            // Ajuster le radius pour éviter dépassement logique (utile pour le background)
+            const effectiveRx = Math.min(barRadius, Math.floor(barWidth / 2));
 
             // Groupe pour chaque barre
             const barGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
             barGroup.style.cursor = "pointer";
             barGroup.setAttribute("data-index", i.toString());
 
-            // Barre "Non" (fond)
+            // Barre "Non" (fond) - forme arrondie complète
             const barNon = document.createElementNS("http://www.w3.org/2000/svg", "rect");
             barNon.setAttribute("x", x.toString());
             barNon.setAttribute("y", (baseY - maxBarHeight).toString());
             barNon.setAttribute("width", barWidth.toString());
             barNon.setAttribute("height", maxBarHeight.toString());
-            barNon.setAttribute("rx", barRadius.toString());
+            barNon.setAttribute("rx", effectiveRx.toString());
             barNon.setAttribute("fill", colorNon);
             barGroup.appendChild(barNon);
 
-            // Barre "Oui" (valeur)
-            const barOui = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-            barOui.setAttribute("x", x.toString());
-            barOui.setAttribute("y", (baseY - barHeight).toString());
-            barOui.setAttribute("width", barWidth.toString());
-            barOui.setAttribute("height", barHeight.toString());
-            barOui.setAttribute("rx", barRadius.toString());
-            barOui.setAttribute("fill", fillColor);
-            barGroup.appendChild(barOui);
+            // ClipPath basé sur la même forme arrondie que le fond (assure que le remplissage "suit" la forme)
+            const clipId = `clip-bar-${i}`;
+            const clipPath = document.createElementNS("http://www.w3.org/2000/svg", "clipPath");
+            clipPath.setAttribute("id", clipId);
+            const clipRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+            clipRect.setAttribute("x", x.toString());
+            clipRect.setAttribute("y", (baseY - maxBarHeight).toString());
+            clipRect.setAttribute("width", barWidth.toString());
+            clipRect.setAttribute("height", maxBarHeight.toString());
+            clipRect.setAttribute("rx", effectiveRx.toString());
+            clipPath.appendChild(clipRect);
+            defs.appendChild(clipPath);
 
-            // Texte du pourcentage
+            // Filled rect : hauteur proportionnelle, positionnée en bas, mais "découpée" par le clipPath
+            const fillRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+            fillRect.setAttribute("x", x.toString());
+            fillRect.setAttribute("y", (baseY - visibleHeight).toString()); // align bottom
+            fillRect.setAttribute("width", barWidth.toString());
+            fillRect.setAttribute("height", visibleHeight.toString());
+            fillRect.setAttribute("fill", fillColor);
+            fillRect.setAttribute("clip-path", `url(#${clipId})`);
+            barGroup.appendChild(fillRect);
+
+            // Texte du pourcentage — centré dans la partie remplie si <5%
             const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
             txt.setAttribute("x", (x + barWidth / 2).toString());
-            if (percentValue < 5) {
-                txt.setAttribute("y", (baseY - maxBarHeight / 2).toString());
-            } else {
-                txt.setAttribute("y", (baseY - barHeight / 2).toString());
-            }
+
+            // Centrer verticalement dans la partie réellement remplie
+            const txtY = baseY - (visibleHeight / 2);
+            txt.setAttribute("y", txtY.toString());
             txt.setAttribute("text-anchor", "middle");
             txt.setAttribute("dominant-baseline", "middle");
-            txt.setAttribute("font-size", fontSize.toString());
+
+            // Ajuster la taille du texte si la zone est trop petite
+            const innerFontSize = (visibleHeight < fontSize) ? Math.max(8, Math.round(visibleHeight * 0.6)) : fontSize;
+            txt.setAttribute("font-size", innerFontSize.toString());
             txt.setAttribute("fill", "#fff");
             txt.textContent = percent + "%";
             barGroup.appendChild(txt);

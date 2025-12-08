@@ -10,6 +10,7 @@ declare class DataPointCardSettings extends FormattingSettingsCard {
     fontSize: formattingSettings.NumUpDown;
     barRadius: formattingSettings.NumUpDown;
     barWidth: formattingSettings.NumUpDown;
+    barSpacing: formattingSettings.NumUpDown;
     name: string;
     displayName: string;
     slices: Array<FormattingSettingsSlice>;

@@ -61,13 +61,20 @@ class DataPointCardSettings extends FormattingSettingsCard {
         value: 60 // valeur par défaut
     });
 
+    barSpacing = new formattingSettings.NumUpDown({   // <-- ajouté
+        name: "barSpacing",
+        displayName: "Bar Spacing",
+        value: 36
+    });
+
     name: string = "dataPoint";
     displayName: string = "Data colors";
     slices: Array<FormattingSettingsSlice> = [
         this.fill,
         this.fontSize,
         this.barRadius,
-        this.barWidth // <-- AJOUT ICI
+        this.barWidth, // <-- AJOUT ICI
+        this.barSpacing
     ];
 }
 

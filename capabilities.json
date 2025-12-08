@@ -21,6 +21,10 @@
                 "barWidth": {
                     "displayName": "Bar Width",
                     "type": { "numeric": true }
+                },
+                "barSpacing": {                       
+                    "displayName": "Bar Spacing",
+                    "type": { "numeric": true }
                 }
             }
         }

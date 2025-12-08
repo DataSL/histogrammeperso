@@ -118,9 +118,18 @@ class Visual {
         if (objects && objects["dataPoint"] && typeof objects["dataPoint"]["barWidth"] === "number") {
             barWidth = objects["dataPoint"]["barWidth"];
         }
-        let barSpacing = Math.round(barWidth * 0.6); // espace par défaut
-        if (objects && objects["dataPoint"] && typeof objects["dataPoint"]["barSpacing"] === "number") {
-            barSpacing = objects["dataPoint"]["barSpacing"];
+        let barSpacing = Math.round(barWidth * 0.6);
+        try {
+            const fs = this.formattingSettings;
+            if (fs && fs.dataPointCard && fs.dataPointCard.barSpacing && typeof fs.dataPointCard.barSpacing.value === "number") {
+                barSpacing = Math.round(fs.dataPointCard.barSpacing.value);
+            }
+            else if (objects && objects["dataPoint"] && typeof objects["dataPoint"]["barSpacing"] === "number") {
+                barSpacing = objects["dataPoint"]["barSpacing"];
+            }
+        }
+        catch (e) {
+            // fallback conservateur — laisser barSpacing calculé
         }
         const maxBarHeight = Math.floor(height * 0.6);
         const baseY = Math.floor(height * 0.8);
@@ -397,13 +406,19 @@ class DataPointCardSettings extends FormattingSettingsCard {
         displayName: "Bar Width",
         value: 60 // valeur par défaut
     });
+    barSpacing = new powerbi_visuals_utils_formattingmodel__WEBPACK_IMPORTED_MODULE_0__/* .formattingSettings.NumUpDown */ .z.iB({
+        name: "barSpacing",
+        displayName: "Bar Spacing",
+        value: 36
+    });
     name = "dataPoint";
     displayName = "Data colors";
     slices = [
         this.fill,
         this.fontSize,
         this.barRadius,
-        this.barWidth // <-- AJOUT ICI
+        this.barWidth,
+        this.barSpacing
     ];
 }
 /**

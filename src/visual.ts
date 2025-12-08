@@ -128,9 +128,16 @@ export class Visual implements IVisual {
             barWidth = (objects["dataPoint"] as any)["barWidth"];
         }
 
-        let barSpacing = Math.round(barWidth * 0.6); // espace par défaut
-        if (objects && objects["dataPoint"] && typeof (objects["dataPoint"] as any)["barSpacing"] === "number") {
-            barSpacing = (objects["dataPoint"] as any)["barSpacing"];
+        let barSpacing = Math.round(barWidth * 0.6);
+        try {
+            const fs = this.formattingSettings as any;
+            if (fs && fs.dataPointCard && fs.dataPointCard.barSpacing && typeof fs.dataPointCard.barSpacing.value === "number") {
+                barSpacing = Math.round(fs.dataPointCard.barSpacing.value);
+            } else if (objects && objects["dataPoint"] && typeof (objects["dataPoint"] as any)["barSpacing"] === "number") {
+                barSpacing = (objects["dataPoint"] as any)["barSpacing"];
+            }
+        } catch (e) {
+            // fallback conservateur — laisser barSpacing calculé
         }
 
         const maxBarHeight = Math.floor(height * 0.6);

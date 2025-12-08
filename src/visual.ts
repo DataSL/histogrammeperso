@@ -162,7 +162,7 @@ export class Visual implements IVisual {
         const xAxisFontSize: number = typeof xAxisObj["fontSize"] === "number" ? xAxisObj["fontSize"] : 14;
         const xAxisFontFamily: string = typeof xAxisObj["fontFamily"] === "string" ? xAxisObj["fontFamily"] : "Segoe UI";
         const xAxisFontColor: string = readColor(xAxisObj["fontColor"]) || "#888";
-        const xAxisFontWeight: string = typeof xAxisObj["fontWeight"] === "string" ? xAxisObj["fontWeight"] : "normal";
+        const bottomMargin: number = typeof xAxisObj["bottomMargin"] === "number" ? Math.max(40, xAxisObj["bottomMargin"]) : 80;
 
         // Calculer barWidth et espacement (une seule déclaration)
         let barWidth = Math.min(60, Math.max(10, Math.floor(width / Math.max(1, sortedCategories.length) * 0.6)));
@@ -183,7 +183,8 @@ export class Visual implements IVisual {
         }
 
         const maxBarHeight = Math.floor(height * 0.6);
-        const baseY = Math.floor(height * 0.8);
+        // Utiliser bottomMargin au lieu de 0.8 fixe
+        const baseY = height - bottomMargin;
 
         // Calculer taille SVG nécessaire et adapter pour activer scroll si besoin
         const paddingLeft = 40;
@@ -259,7 +260,10 @@ export class Visual implements IVisual {
         const barGroups: SVGGElement[] = [];
         
         // ÉTAPE 1: Déterminer si AU MOINS UN label nécessite une rotation
+        // On utilise maintenant l'espace vertical disponible (bottomMargin) au lieu de barWidth
         let needsRotation = false;
+        const availableSpaceForLabel = bottomMargin - 25; // espace disponible pour le label (en retirant padding)
+        
         sortedCategories.forEach((cat, i) => {
             const tempText = document.createElementNS("http://www.w3.org/2000/svg", "text");
             tempText.setAttribute("font-size", xAxisFontSize.toString());
@@ -271,6 +275,7 @@ export class Visual implements IVisual {
             this.svg.removeChild(tempText);
             
             const maxLabelWidth = barWidth + barSpacing - 4;
+            // Si le texte dépasse l'espace horizontal OU si labels multiples se chevauchent
             if (textWidth > maxLabelWidth) {
                 needsRotation = true;
             }
@@ -408,9 +413,11 @@ export class Visual implements IVisual {
                     yearTxt.setAttribute("transform", `rotate(${-rotation} ${yearX} ${yearY})`);
                     
                     // Tronquer si texte trop long même en rotation
-                    const maxRotatedLength = 60;
-                    if (textWidth > maxRotatedLength && cat.length > 8) {
-                        displayText = cat.substring(0, 8) + "...";
+                    // Utiliser bottomMargin pour calculer l'espace disponible en rotation
+                    const maxRotatedLength = Math.floor(availableSpaceForLabel * 1.2); // approximation pour texte en diagonale
+                    if (textWidth > maxRotatedLength && cat.length > 10) {
+                        const charsToKeep = Math.floor(cat.length * (maxRotatedLength / textWidth)) - 3;
+                        displayText = cat.substring(0, Math.max(1, charsToKeep)) + "...";
                     }
                 } else {
                     // Mode horizontal : tronquer si nécessaire
@@ -450,9 +457,6 @@ export class Visual implements IVisual {
             axisTitle.setAttribute("font-size", (xAxisFontSize).toString());
             axisTitle.setAttribute("fill", xAxisFontColor);
             axisTitle.setAttribute("font-family", xAxisFontFamily);
-            if (xAxisFontWeight) {
-                axisTitle.setAttribute("font-weight", xAxisFontWeight);
-            }
             axisTitle.textContent = xAxisTitle;
             this.svg.appendChild(axisTitle);
         }

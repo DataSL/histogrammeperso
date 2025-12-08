@@ -149,6 +149,12 @@ class XAxisCardSettings extends FormattingSettingsCard {
         value: { value: "#888888" }
     });
 
+    bottomMargin = new formattingSettings.NumUpDown({
+        name: "bottomMargin",
+        displayName: "Bottom margin (spacing for X axis)",
+        value: 80
+    });
+
     name: string = "xAxis";
     displayName: string = "X axis";
     slices: Array<FormattingSettingsSlice> = [
@@ -157,7 +163,8 @@ class XAxisCardSettings extends FormattingSettingsCard {
         this.labelRotation,
         this.fontSize,
         this.fontFamily,
-        this.fontColor
+        this.fontColor,
+        this.bottomMargin
     ];
 }
 

@@ -29,6 +29,7 @@ declare class XAxisCardSettings extends FormattingSettingsCard {
     fontSize: formattingSettings.NumUpDown;
     fontFamily: formattingSettings.TextInput;
     fontColor: formattingSettings.ColorPicker;
+    bottomMargin: formattingSettings.NumUpDown;
     name: string;
     displayName: string;
     slices: Array<FormattingSettingsSlice>;

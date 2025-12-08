@@ -150,7 +150,7 @@ class Visual {
         const xAxisFontSize = typeof xAxisObj["fontSize"] === "number" ? xAxisObj["fontSize"] : 14;
         const xAxisFontFamily = typeof xAxisObj["fontFamily"] === "string" ? xAxisObj["fontFamily"] : "Segoe UI";
         const xAxisFontColor = readColor(xAxisObj["fontColor"]) || "#888";
-        const xAxisFontWeight = typeof xAxisObj["fontWeight"] === "string" ? xAxisObj["fontWeight"] : "normal";
+        const bottomMargin = typeof xAxisObj["bottomMargin"] === "number" ? Math.max(40, xAxisObj["bottomMargin"]) : 80;
         // Calculer barWidth et espacement (une seule déclaration)
         let barWidth = Math.min(60, Math.max(10, Math.floor(width / Math.max(1, sortedCategories.length) * 0.6)));
         if (objects && objects["dataPoint"] && typeof objects["dataPoint"]["barWidth"] === "number") {
@@ -170,7 +170,8 @@ class Visual {
             // fallback conservateur — laisser barSpacing calculé
         }
         const maxBarHeight = Math.floor(height * 0.6);
-        const baseY = Math.floor(height * 0.8);
+        // Utiliser bottomMargin au lieu de 0.8 fixe
+        const baseY = height - bottomMargin;
         // Calculer taille SVG nécessaire et adapter pour activer scroll si besoin
         const paddingLeft = 40;
         const paddingRight = 40;
@@ -237,7 +238,9 @@ class Visual {
         // Dessin des barres
         const barGroups = [];
         // ÉTAPE 1: Déterminer si AU MOINS UN label nécessite une rotation
+        // On utilise maintenant l'espace vertical disponible (bottomMargin) au lieu de barWidth
         let needsRotation = false;
+        const availableSpaceForLabel = bottomMargin - 25; // espace disponible pour le label (en retirant padding)
         sortedCategories.forEach((cat, i) => {
             const tempText = document.createElementNS("http://www.w3.org/2000/svg", "text");
             tempText.setAttribute("font-size", xAxisFontSize.toString());
@@ -248,6 +251,7 @@ class Visual {
             const textWidth = tempText.getBBox().width;
             this.svg.removeChild(tempText);
             const maxLabelWidth = barWidth + barSpacing - 4;
+            // Si le texte dépasse l'espace horizontal OU si labels multiples se chevauchent
             if (textWidth > maxLabelWidth) {
                 needsRotation = true;
             }
@@ -373,9 +377,11 @@ class Visual {
                     yearTxt.setAttribute("text-anchor", "end");
                     yearTxt.setAttribute("transform", `rotate(${-rotation} ${yearX} ${yearY})`);
                     // Tronquer si texte trop long même en rotation
-                    const maxRotatedLength = 60;
-                    if (textWidth > maxRotatedLength && cat.length > 8) {
-                        displayText = cat.substring(0, 8) + "...";
+                    // Utiliser bottomMargin pour calculer l'espace disponible en rotation
+                    const maxRotatedLength = Math.floor(availableSpaceForLabel * 1.2); // approximation pour texte en diagonale
+                    if (textWidth > maxRotatedLength && cat.length > 10) {
+                        const charsToKeep = Math.floor(cat.length * (maxRotatedLength / textWidth)) - 3;
+                        displayText = cat.substring(0, Math.max(1, charsToKeep)) + "...";
                     }
                 }
                 else {
@@ -412,9 +418,6 @@ class Visual {
             axisTitle.setAttribute("font-size", (xAxisFontSize).toString());
             axisTitle.setAttribute("fill", xAxisFontColor);
             axisTitle.setAttribute("font-family", xAxisFontFamily);
-            if (xAxisFontWeight) {
-                axisTitle.setAttribute("font-weight", xAxisFontWeight);
-            }
             axisTitle.textContent = xAxisTitle;
             this.svg.appendChild(axisTitle);
         }
@@ -617,6 +620,11 @@ class XAxisCardSettings extends FormattingSettingsCard {
         displayName: "X axis font color",
         value: { value: "#888888" }
     });
+    bottomMargin = new powerbi_visuals_utils_formattingmodel__WEBPACK_IMPORTED_MODULE_0__/* .formattingSettings.NumUpDown */ .z.iB({
+        name: "bottomMargin",
+        displayName: "Bottom margin (spacing for X axis)",
+        value: 80
+    });
     name = "xAxis";
     displayName = "X axis";
     slices = [
@@ -625,7 +633,8 @@ class XAxisCardSettings extends FormattingSettingsCard {
         this.labelRotation,
         this.fontSize,
         this.fontFamily,
-        this.fontColor
+        this.fontColor,
+        this.bottomMargin
     ];
 }
 /**

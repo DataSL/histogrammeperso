@@ -178,12 +178,12 @@ export class Visual implements IVisual {
 
         // Dessin des barres avec gestion de la sélection
         sortedCategories.forEach((cat, i) => {
-            // Les valeurs sont entre 0 et 1, il faut les convertir en pourcentage décimal
-            const percent = (sortedValues[i] * 100).toFixed(2).replace('.', ',');
+            const percentValue = sortedValues[i] * 100;
+            const percent = percentValue.toFixed(2).replace('.', ',');
             const x = 40 + i * (barWidth + barSpacing);
-            const barHeight = maxBarHeight * sortedValues[i]; // Utiliser la valeur brute (0-1)
+            const barHeight = maxBarHeight * sortedValues[i];
 
-            // Groupe pour chaque barre (pour gérer les événements)
+            // Groupe pour chaque barre
             const barGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
             barGroup.style.cursor = "pointer";
             barGroup.setAttribute("data-index", i.toString());
@@ -211,7 +211,11 @@ export class Visual implements IVisual {
             // Texte du pourcentage
             const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
             txt.setAttribute("x", (x + barWidth / 2).toString());
-            txt.setAttribute("y", (baseY - barHeight / 2).toString());
+            if (percentValue < 5) {
+                txt.setAttribute("y", (baseY - maxBarHeight / 2).toString());
+            } else {
+                txt.setAttribute("y", (baseY - barHeight / 2).toString());
+            }
             txt.setAttribute("text-anchor", "middle");
             txt.setAttribute("dominant-baseline", "middle");
             txt.setAttribute("font-size", fontSize.toString());
@@ -233,12 +237,9 @@ export class Visual implements IVisual {
             barGroup.addEventListener("click", (event) => {
                 event.stopPropagation();
                 const mouseEvent = event as MouseEvent;
-                // Permet la sélection multiple avec Ctrl/Cmd
                 const isCtrlPressed = mouseEvent.ctrlKey || mouseEvent.metaKey;
-                
                 this.selectionManager.select(selectionIds[i], isCtrlPressed)
                     .then((ids: ISelectionId[]) => {
-                        // Mise à jour visuelle des barres sélectionnées
                         this.updateSelection(ids, barGroups);
                     });
             });

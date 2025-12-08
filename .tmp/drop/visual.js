@@ -236,6 +236,22 @@ class Visual {
         this.svg.appendChild(defs);
         // Dessin des barres
         const barGroups = [];
+        // ÉTAPE 1: Déterminer si AU MOINS UN label nécessite une rotation
+        let needsRotation = false;
+        sortedCategories.forEach((cat, i) => {
+            const tempText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            tempText.setAttribute("font-size", xAxisFontSize.toString());
+            tempText.setAttribute("font-family", xAxisFontFamily);
+            tempText.textContent = cat;
+            tempText.style.visibility = "hidden";
+            this.svg.appendChild(tempText);
+            const textWidth = tempText.getBBox().width;
+            this.svg.removeChild(tempText);
+            const maxLabelWidth = barWidth + barSpacing - 4;
+            if (textWidth > maxLabelWidth) {
+                needsRotation = true;
+            }
+        });
         sortedCategories.forEach((cat, i) => {
             const rawValue = sortedValues[i] || 0;
             const percentValue = rawValue * 100;
@@ -277,7 +293,6 @@ class Visual {
                 fillRect.setAttribute("fill", fillColor);
                 fillRect.setAttribute("clip-path", `url(#${clipId})`);
                 barGroup.appendChild(fillRect);
-                // texte centré sur la barre entière (utilise formattedValue)
                 const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
                 const txtX = (x + barWidth / 2);
                 const txtY = (baseY - (maxBarHeight / 2));
@@ -285,20 +300,16 @@ class Visual {
                 txt.setAttribute("y", txtY.toString());
                 txt.setAttribute("text-anchor", "middle");
                 txt.setAttribute("dominant-baseline", "middle");
-                // utiliser la taille configurée pour valeurs (barValueFontSize)
                 txt.setAttribute("font-size", barValueFontSize.toString());
                 txt.setAttribute("fill", barValueFontColor);
                 txt.setAttribute("font-family", barValueFontFamily);
-                // mettre le texte (valeur formatée)
                 txt.textContent = formattedValue;
                 if (narrowMode) {
-                    // rotate around center of the text
                     txt.setAttribute("transform", `rotate(-90 ${txtX} ${txtY})`);
                 }
                 barGroup.appendChild(txt);
             }
             else if (visibleHeight > 0) {
-                // normal rounded filled rect
                 const barOui = document.createElementNS("http://www.w3.org/2000/svg", "rect");
                 const barHeight = visibleHeight;
                 barOui.setAttribute("x", x.toString());
@@ -309,7 +320,6 @@ class Visual {
                 barOui.setAttribute("rx", rxForOui.toString());
                 barOui.setAttribute("fill", fillColor);
                 barGroup.appendChild(barOui);
-                // texte centré dans la partie remplie
                 const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
                 const txtX = (x + barWidth / 2);
                 const txtY = (baseY - (barHeight / 2));
@@ -321,7 +331,6 @@ class Visual {
                 txt.setAttribute("font-size", innerFontSize.toString());
                 txt.setAttribute("fill", barValueFontColor);
                 txt.setAttribute("font-family", barValueFontFamily);
-                // mettre le texte (valeur formatée)
                 txt.textContent = formattedValue;
                 if (narrowMode) {
                     txt.setAttribute("transform", `rotate(-90 ${txtX} ${txtY})`);
@@ -329,7 +338,6 @@ class Visual {
                 barGroup.appendChild(txt);
             }
             else {
-                // zero value: optionally add a small baseline marker (keeps visuals consistent)
                 const marker = document.createElementNS("http://www.w3.org/2000/svg", "rect");
                 marker.setAttribute("x", (x + 2).toString());
                 marker.setAttribute("y", (baseY - 2).toString());
@@ -338,24 +346,48 @@ class Visual {
                 marker.setAttribute("fill", colorNon);
                 barGroup.appendChild(marker);
             }
-            // year label (respecter le choix d'affichage de l'axe X)
+            // year label — tous identiques (rotation si AU MOINS 1 nécessite)
             if (showXAxis) {
                 const yearTxt = document.createElementNS("http://www.w3.org/2000/svg", "text");
                 const yearX = (x + barWidth / 2);
                 const yearY = (baseY + 20);
                 yearTxt.setAttribute("x", yearX.toString());
                 yearTxt.setAttribute("y", yearY.toString());
-                yearTxt.setAttribute("text-anchor", "middle");
                 yearTxt.setAttribute("font-size", xAxisFontSize.toString());
                 yearTxt.setAttribute("fill", xAxisFontColor);
                 yearTxt.setAttribute("font-family", xAxisFontFamily);
-                if (xAxisFontWeight) {
-                    yearTxt.setAttribute("font-weight", xAxisFontWeight);
+                let displayText = cat;
+                const maxLabelWidth = barWidth + barSpacing - 4;
+                // Mesurer largeur texte pour troncature éventuelle
+                const tempText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                tempText.setAttribute("font-size", xAxisFontSize.toString());
+                tempText.setAttribute("font-family", xAxisFontFamily);
+                tempText.textContent = cat;
+                tempText.style.visibility = "hidden";
+                this.svg.appendChild(tempText);
+                const textWidth = tempText.getBBox().width;
+                this.svg.removeChild(tempText);
+                if (needsRotation || labelRotation !== 0) {
+                    // Rotation appliquée à TOUS (décision globale)
+                    const rotation = labelRotation !== 0 ? labelRotation : 45;
+                    yearTxt.setAttribute("text-anchor", "end");
+                    yearTxt.setAttribute("transform", `rotate(${-rotation} ${yearX} ${yearY})`);
+                    // Tronquer si texte trop long même en rotation
+                    const maxRotatedLength = 60;
+                    if (textWidth > maxRotatedLength && cat.length > 8) {
+                        displayText = cat.substring(0, 8) + "...";
+                    }
                 }
-                yearTxt.textContent = cat;
-                if (labelRotation) {
-                    yearTxt.setAttribute("transform", `rotate(${-labelRotation} ${yearX} ${yearY})`);
+                else {
+                    // Mode horizontal : tronquer si nécessaire
+                    yearTxt.setAttribute("text-anchor", "middle");
+                    if (textWidth > maxLabelWidth && cat.length > 3) {
+                        let truncateLength = Math.floor(cat.length * (maxLabelWidth / textWidth)) - 3;
+                        truncateLength = Math.max(1, truncateLength);
+                        displayText = cat.substring(0, truncateLength) + "...";
+                    }
                 }
+                yearTxt.textContent = displayText;
                 barGroup.appendChild(yearTxt);
             }
             // click selection

@@ -31,7 +31,7 @@
     "dataViewMappings": [
         {
             "conditions": [
-                { "measure": { "max": 1 } }
+                { "category": { "max": 1 }, "measure": { "max": 1 } }
             ],
             "categorical": {
                 "categories": { "for": { "in": "category" } },

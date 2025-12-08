@@ -1,3 +1,4 @@
+
 {
     "dataRoles": [
         { "displayName": "Category Data", "name": "category", "kind": "Grouping" },
@@ -31,6 +32,9 @@
     },
     "dataViewMappings": [
         {
+            "conditions": [
+                { "measure": { "max": 1 } }
+            ],
             "categorical": {
                 "categories": {
                     "for": { "in": "category" }

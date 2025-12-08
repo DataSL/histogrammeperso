@@ -41,10 +41,10 @@ export class Visual implements IVisual {
     private formattingSettings: VisualFormattingSettingsModel;
     private formattingSettingsService: FormattingSettingsService;
     private svg: SVGSVGElement;
-    private container: HTMLElement; // <--- ajouté
+    private container: HTMLElement;
     private selectionManager: ISelectionManager;
     private host: powerbi.extensibility.visual.IVisualHost;
-    private dataPoints: Array<{ year: number; value: number; selectionId: ISelectionId }>;
+    private dataPoints: Array<{ category: string; value: number; selectionId: ISelectionId }>;
 
     constructor(options: VisualConstructorOptions) {
         this.formattingSettingsService = new FormattingSettingsService();
@@ -91,15 +91,26 @@ export class Visual implements IVisual {
         const values = dataView.categorical.values[0].values as number[];
 
         // Création des ISelectionId pour chaque catégorie - stocker dans this.dataPoints
-        this.dataPoints = categoryValues.map((year, i) => ({
-            year: typeof year === "string" ? parseInt(year as string, 10) : (year as number),
+        this.dataPoints = categoryValues.map((cat, i) => ({
+            category: cat.toString(), // Convertir en string pour supporter tous types
             value: values[i],
             selectionId: this.host.createSelectionIdBuilder()
                 .withCategory(categories, i)
                 .createSelectionId()
-        })).sort((a, b) => a.year - b.year);
+        }));
 
-        const sortedCategories = this.dataPoints.map(d => d.year.toString());
+        // Détecter si toutes les catégories sont des années (nombres à 4 chiffres)
+        const areYears = this.dataPoints.every(dp => {
+            const num = parseInt(dp.category);
+            return !isNaN(num) && num >= 1900 && num <= 2100 && dp.category.length === 4;
+        });
+
+        // Trier par année si détecté, sinon garder l'ordre d'origine
+        if (areYears) {
+            this.dataPoints.sort((a, b) => parseInt(a.category) - parseInt(b.category));
+        }
+
+        const sortedCategories = this.dataPoints.map(d => d.category);
         const sortedValues = this.dataPoints.map(d => d.value);
         const selectionIds = this.dataPoints.map(d => d.selectionId);
 

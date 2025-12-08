@@ -46,7 +46,7 @@ class Visual {
     formattingSettings;
     formattingSettingsService;
     svg;
-    container; // <--- ajouté
+    container;
     selectionManager;
     host;
     dataPoints;
@@ -87,14 +87,23 @@ class Visual {
         const categoryValues = categories.values;
         const values = dataView.categorical.values[0].values;
         // Création des ISelectionId pour chaque catégorie - stocker dans this.dataPoints
-        this.dataPoints = categoryValues.map((year, i) => ({
-            year: typeof year === "string" ? parseInt(year, 10) : year,
+        this.dataPoints = categoryValues.map((cat, i) => ({
+            category: cat.toString(),
             value: values[i],
             selectionId: this.host.createSelectionIdBuilder()
                 .withCategory(categories, i)
                 .createSelectionId()
-        })).sort((a, b) => a.year - b.year);
-        const sortedCategories = this.dataPoints.map(d => d.year.toString());
+        }));
+        // Détecter si toutes les catégories sont des années (nombres à 4 chiffres)
+        const areYears = this.dataPoints.every(dp => {
+            const num = parseInt(dp.category);
+            return !isNaN(num) && num >= 1900 && num <= 2100 && dp.category.length === 4;
+        });
+        // Trier par année si détecté, sinon garder l'ordre d'origine
+        if (areYears) {
+            this.dataPoints.sort((a, b) => parseInt(a.category) - parseInt(b.category));
+        }
+        const sortedCategories = this.dataPoints.map(d => d.category);
         const sortedValues = this.dataPoints.map(d => d.value);
         const selectionIds = this.dataPoints.map(d => d.selectionId);
         // Récupération des propriétés personnalisables

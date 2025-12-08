@@ -80,7 +80,6 @@ class DataPointCardSettings extends FormattingSettingsCard {
         value: 36
     });
 
-    // mode d'affichage des valeurs : 0 = %, 1 = decimal, 2 = integer
     valueDisplayMode = new formattingSettings.NumUpDown({
         name: "valueDisplayMode",
         displayName: "Value display mode (0=%,1=decimal,2=integer)",
@@ -109,7 +108,7 @@ class DataPointCardSettings extends FormattingSettingsCard {
 }
 
 /**
- * X Axis Formatting Card
+ * X Axis Formatting Card (Dropdown for font family)
  */
 class XAxisCardSettings extends FormattingSettingsCard {
     show = new formattingSettings.ToggleSwitch({
@@ -121,13 +120,6 @@ class XAxisCardSettings extends FormattingSettingsCard {
     title = new formattingSettings.TextInput({
         name: "title",
         displayName: "X axis title",
-        value: "",
-        placeholder: ""
-    });
-
-    labelFormat = new formattingSettings.TextInput({
-        name: "labelFormat",
-        displayName: "Label format string (optional)",
         value: "",
         placeholder: ""
     });
@@ -157,30 +149,20 @@ class XAxisCardSettings extends FormattingSettingsCard {
         value: { value: "#888888" }
     });
 
-    fontWeight = new formattingSettings.TextInput({
-        name: "fontWeight",
-        displayName: "X axis font weight",
-        value: "normal",
-        placeholder: "normal or bold"
-    });
-
     name: string = "xAxis";
     displayName: string = "X axis";
     slices: Array<FormattingSettingsSlice> = [
         this.show,
         this.title,
-        this.labelFormat,
         this.labelRotation,
         this.fontSize,
         this.fontFamily,
-        this.fontColor,
-        this.fontWeight
+        this.fontColor
     ];
 }
 
 /**
 * visual settings model class
-*
 */
 export class VisualFormattingSettingsModel extends FormattingSettingsModel {
     dataPointCard = new DataPointCardSettings();

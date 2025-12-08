@@ -516,7 +516,6 @@ class DataPointCardSettings extends FormattingSettingsCard {
         displayName: "Bar Spacing",
         value: 36
     });
-    // mode d'affichage des valeurs : 0 = %, 1 = decimal, 2 = integer
     valueDisplayMode = new powerbi_visuals_utils_formattingmodel__WEBPACK_IMPORTED_MODULE_0__/* .formattingSettings.NumUpDown */ .z.iB({
         name: "valueDisplayMode",
         displayName: "Value display mode (0=%,1=decimal,2=integer)",
@@ -542,7 +541,7 @@ class DataPointCardSettings extends FormattingSettingsCard {
     ];
 }
 /**
- * X Axis Formatting Card
+ * X Axis Formatting Card (Dropdown for font family)
  */
 class XAxisCardSettings extends FormattingSettingsCard {
     show = new powerbi_visuals_utils_formattingmodel__WEBPACK_IMPORTED_MODULE_0__/* .formattingSettings.ToggleSwitch */ .z.jF({
@@ -553,12 +552,6 @@ class XAxisCardSettings extends FormattingSettingsCard {
     title = new powerbi_visuals_utils_formattingmodel__WEBPACK_IMPORTED_MODULE_0__/* .formattingSettings.TextInput */ .z.ks({
         name: "title",
         displayName: "X axis title",
-        value: "",
-        placeholder: ""
-    });
-    labelFormat = new powerbi_visuals_utils_formattingmodel__WEBPACK_IMPORTED_MODULE_0__/* .formattingSettings.TextInput */ .z.ks({
-        name: "labelFormat",
-        displayName: "Label format string (optional)",
         value: "",
         placeholder: ""
     });
@@ -583,28 +576,19 @@ class XAxisCardSettings extends FormattingSettingsCard {
         displayName: "X axis font color",
         value: { value: "#888888" }
     });
-    fontWeight = new powerbi_visuals_utils_formattingmodel__WEBPACK_IMPORTED_MODULE_0__/* .formattingSettings.TextInput */ .z.ks({
-        name: "fontWeight",
-        displayName: "X axis font weight",
-        value: "normal",
-        placeholder: "normal or bold"
-    });
     name = "xAxis";
     displayName = "X axis";
     slices = [
         this.show,
         this.title,
-        this.labelFormat,
         this.labelRotation,
         this.fontSize,
         this.fontFamily,
-        this.fontColor,
-        this.fontWeight
+        this.fontColor
     ];
 }
 /**
 * visual settings model class
-*
 */
 class VisualFormattingSettingsModel extends FormattingSettingsModel {
     dataPointCard = new DataPointCardSettings();

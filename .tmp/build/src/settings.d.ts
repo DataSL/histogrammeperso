@@ -20,24 +20,21 @@ declare class DataPointCardSettings extends FormattingSettingsCard {
     slices: Array<FormattingSettingsSlice>;
 }
 /**
- * X Axis Formatting Card
+ * X Axis Formatting Card (Dropdown for font family)
  */
 declare class XAxisCardSettings extends FormattingSettingsCard {
     show: formattingSettings.ToggleSwitch;
     title: formattingSettings.TextInput;
-    labelFormat: formattingSettings.TextInput;
     labelRotation: formattingSettings.NumUpDown;
     fontSize: formattingSettings.NumUpDown;
     fontFamily: formattingSettings.TextInput;
     fontColor: formattingSettings.ColorPicker;
-    fontWeight: formattingSettings.TextInput;
     name: string;
     displayName: string;
     slices: Array<FormattingSettingsSlice>;
 }
 /**
 * visual settings model class
-*
 */
 export declare class VisualFormattingSettingsModel extends FormattingSettingsModel {
     dataPointCard: DataPointCardSettings;

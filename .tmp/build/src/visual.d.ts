@@ -8,6 +8,7 @@ export declare class Visual implements IVisual {
     private formattingSettings;
     private formattingSettingsService;
     private svg;
+    private container;
     private selectionManager;
     private host;
     private dataPoints;

@@ -46,6 +46,7 @@ class Visual {
     formattingSettings;
     formattingSettingsService;
     svg;
+    container; // <--- ajouté
     selectionManager;
     host;
     dataPoints;
@@ -54,22 +55,32 @@ class Visual {
         this.target = options.element;
         this.host = options.host;
         this.selectionManager = this.host.createSelectionManager();
+        // Container scrollable pour le SVG
+        this.container = document.createElement('div');
+        this.container.style.width = "100%";
+        this.container.style.height = "100%";
+        this.container.style.overflow = "auto"; // permet scroll horizontal et vertical
+        this.container.style.position = "relative";
+        this.target.appendChild(this.container);
         this.svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
         this.svg.setAttribute("width", "100%");
         this.svg.setAttribute("height", "100%");
-        this.target.appendChild(this.svg);
+        this.svg.style.display = "block"; // évite gaps dans certains navigateurs
+        this.container.appendChild(this.svg);
         this.dataPoints = [];
     }
     update(options) {
-        this.formattingSettings = this.formattingSettingsService.populateFormattingSettingsModel(_settings__WEBPACK_IMPORTED_MODULE_1__/* .VisualFormattingSettingsModel */ .S, options.dataViews[0]);
+        this.formattingSettings = this.formattingSettingsService.populateFormattingSettingsModel(_settings__WEBPACK_IMPORTED_MODULE_1__/* .VisualFormattingSettingsModel */ .S, options.dataViews && options.dataViews[0]);
+        // clear svg
         while (this.svg.firstChild)
             this.svg.removeChild(this.svg.firstChild);
         const width = options.viewport.width;
         const height = options.viewport.height;
-        this.svg.setAttribute("width", width.toString());
-        this.svg.setAttribute("height", height.toString());
+        // Fixer la zone visible (container) à la taille du viewport Power BI
+        this.container.style.width = width + "px";
+        this.container.style.height = height + "px";
         // Récupération des données
-        const dataView = options.dataViews[0];
+        const dataView = options.dataViews && options.dataViews[0];
         if (!dataView || !dataView.categorical)
             return;
         const categories = dataView.categorical.categories[0];
@@ -87,7 +98,7 @@ class Visual {
         const sortedValues = this.dataPoints.map(d => d.value);
         const selectionIds = this.dataPoints.map(d => d.selectionId);
         // Récupération des propriétés personnalisables
-        const objects = dataView.metadata.objects;
+        const objects = dataView.metadata && dataView.metadata.objects;
         let fillColor = "#2F6FE7";
         if (objects && objects["dataPoint"] && objects["dataPoint"]["fill"]) {
             const colorObj = objects["dataPoint"]["fill"];
@@ -96,32 +107,43 @@ class Visual {
             }
         }
         const colorNon = lightenColor(fillColor, 0.6, 0.5);
-        let barRadius = 30;
-        if (objects && objects["dataPoint"] && objects["dataPoint"]["barRadius"]) {
-            const radiusProp = objects["dataPoint"]["barRadius"];
-            if (typeof radiusProp === "number") {
-                barRadius = radiusProp;
-            }
-        }
-        let fontSize = 18;
-        if (objects && objects["dataPoint"] && objects["dataPoint"]["fontSize"]) {
-            const fontSizeProp = objects["dataPoint"]["fontSize"];
-            if (typeof fontSizeProp === "number") {
-                fontSize = fontSizeProp;
-            }
-        }
-        // Paramètres du graphique
-        let barWidth = Math.min(60, width / (sortedCategories.length * 1.2));
+        const barRadius = objects && objects["dataPoint"] && typeof objects["dataPoint"]["barRadius"] === "number"
+            ? objects["dataPoint"]["barRadius"]
+            : 30;
+        const fontSize = objects && objects["dataPoint"] && typeof objects["dataPoint"]["fontSize"] === "number"
+            ? objects["dataPoint"]["fontSize"]
+            : 18;
+        // Calculer barWidth et espacement (une seule déclaration)
+        let barWidth = Math.min(60, Math.max(10, Math.floor(width / Math.max(1, sortedCategories.length) * 0.6)));
         if (objects && objects["dataPoint"] && typeof objects["dataPoint"]["barWidth"] === "number") {
             barWidth = objects["dataPoint"]["barWidth"];
         }
-        const barSpacing = barWidth * 0.3;
-        const maxBarHeight = height * 0.6;
-        const baseY = height * 0.8;
-        // Dessin de la légende
+        let barSpacing = Math.round(barWidth * 0.6); // espace par défaut
+        if (objects && objects["dataPoint"] && typeof objects["dataPoint"]["barSpacing"] === "number") {
+            barSpacing = objects["dataPoint"]["barSpacing"];
+        }
+        const maxBarHeight = Math.floor(height * 0.6);
+        const baseY = Math.floor(height * 0.8);
+        // Calculer taille SVG nécessaire et adapter pour activer scroll si besoin
+        const paddingLeft = 40;
+        const paddingRight = 40;
+        const totalNeededWidth = paddingLeft + sortedCategories.length * (barWidth + barSpacing) - barSpacing + paddingRight;
+        const svgWidth = Math.max(width, Math.ceil(totalNeededWidth));
+        const svgHeight = Math.max(height, Math.ceil(maxBarHeight + 120));
+        this.svg.setAttribute("width", svgWidth.toString());
+        this.svg.setAttribute("height", svgHeight.toString());
+        // Titre + légende
+        const title = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        title.setAttribute("x", "10");
+        title.setAttribute("y", "20");
+        title.setAttribute("font-size", "20");
+        title.setAttribute("font-weight", "bold");
+        title.setAttribute("fill", "#222");
+        title.textContent = "DSP";
+        this.svg.appendChild(title);
         const legendGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
         let legendX = 10;
-        let legendY = 30;
+        const legendY = 30;
         const legendNon = document.createElementNS("http://www.w3.org/2000/svg", "rect");
         legendNon.setAttribute("x", legendX.toString());
         legendNon.setAttribute("y", legendY.toString());
@@ -153,38 +175,25 @@ class Visual {
         legendOuiText.setAttribute("fill", "#222");
         legendOuiText.textContent = "Oui";
         legendGroup.appendChild(legendOuiText);
-        const title = document.createElementNS("http://www.w3.org/2000/svg", "text");
-        title.setAttribute("x", "10");
-        title.setAttribute("y", "20");
-        title.setAttribute("font-size", "20");
-        title.setAttribute("font-weight", "bold");
-        title.setAttribute("fill", "#222");
-        title.textContent = "DSP";
-        this.svg.appendChild(title);
         this.svg.appendChild(legendGroup);
-        // Stocker les groupes de barres pour la sélection
+        this.svg.appendChild(title);
+        // defs pour clipPaths (nouveau à chaque update)
+        const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+        this.svg.appendChild(defs);
+        // Dessin des barres
         const barGroups = [];
-        // Ensure a <defs> for clipPaths
-        let defs = this.svg.querySelector('defs');
-        if (!defs) {
-            defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
-            this.svg.appendChild(defs);
-        }
-        // Dessin des barres avec gestion de la sélection
         sortedCategories.forEach((cat, i) => {
-            const percentValue = sortedValues[i] * 100;
+            const rawValue = sortedValues[i] || 0;
+            const percentValue = rawValue * 100;
             const percent = percentValue.toFixed(2).replace('.', ',');
-            const x = 40 + i * (barWidth + barSpacing);
-            // Hauteur proportionnelle réelle (gardez la proportion)
-            const rawBarHeight = maxBarHeight * sortedValues[i];
-            const visibleHeight = Math.max(rawBarHeight, 1); // au moins 1px visible si >0
-            // Ajuster le radius pour éviter dépassement logique (utile pour le background)
+            const x = paddingLeft + i * (barWidth + barSpacing);
+            const rawBarHeight = Math.max(0, Math.min(1, rawValue)) * maxBarHeight;
+            const visibleHeight = rawBarHeight > 0 ? rawBarHeight : 0;
             const effectiveRx = Math.min(barRadius, Math.floor(barWidth / 2));
-            // Groupe pour chaque barre
             const barGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
             barGroup.style.cursor = "pointer";
             barGroup.setAttribute("data-index", i.toString());
-            // Barre "Non" (fond) - forme arrondie complète (toujours)
+            // background rounded rect
             const barNon = document.createElementNS("http://www.w3.org/2000/svg", "rect");
             barNon.setAttribute("x", x.toString());
             barNon.setAttribute("y", (baseY - maxBarHeight).toString());
@@ -193,9 +202,9 @@ class Visual {
             barNon.setAttribute("rx", effectiveRx.toString());
             barNon.setAttribute("fill", colorNon);
             barGroup.appendChild(barNon);
-            if (percentValue < 5 && rawBarHeight > 0) {
-                // Petite valeur : utiliser clipPath + fillRect pour que le remplissage suive la forme arrondie
-                const clipId = `clip-bar-${i}`;
+            if (percentValue < 5 && visibleHeight > 0) {
+                // clip + fill so fill respects rounded background shape
+                const clipId = `clip-bar-${i}-${Date.now()}`;
                 const clipPath = document.createElementNS("http://www.w3.org/2000/svg", "clipPath");
                 clipPath.setAttribute("id", clipId);
                 const clipRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
@@ -206,58 +215,60 @@ class Visual {
                 clipRect.setAttribute("rx", effectiveRx.toString());
                 clipPath.appendChild(clipRect);
                 defs.appendChild(clipPath);
-                // Filled rect : hauteur proportionnelle, positionnée en bas, découpée par le clipPath
                 const fillRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
                 fillRect.setAttribute("x", x.toString());
-                fillRect.setAttribute("y", (baseY - visibleHeight).toString()); // align bottom
+                fillRect.setAttribute("y", (baseY - visibleHeight).toString());
                 fillRect.setAttribute("width", barWidth.toString());
                 fillRect.setAttribute("height", visibleHeight.toString());
                 fillRect.setAttribute("fill", fillColor);
                 fillRect.setAttribute("clip-path", `url(#${clipId})`);
                 barGroup.appendChild(fillRect);
-                // Texte : placer au milieu de la barre entière (background), pas seulement de la partie remplie
+                // texte centré sur la barre entière
                 const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
                 txt.setAttribute("x", (x + barWidth / 2).toString());
-                const txtY = baseY - (maxBarHeight / 2); // milieu de la barre de fond
-                txt.setAttribute("y", txtY.toString());
+                txt.setAttribute("y", (baseY - (maxBarHeight / 2)).toString());
                 txt.setAttribute("text-anchor", "middle");
                 txt.setAttribute("dominant-baseline", "middle");
-                // Garder taille de police normale (centrée dans la barre entière)
-                const innerFontSize = fontSize;
+                txt.setAttribute("font-size", fontSize.toString());
+                txt.setAttribute("fill", "#fff");
+                txt.textContent = percent + "%";
+                barGroup.appendChild(txt);
+            }
+            else if (visibleHeight > 0) {
+                // normal rounded filled rect
+                const barOui = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                const barHeight = visibleHeight;
+                barOui.setAttribute("x", x.toString());
+                barOui.setAttribute("y", (baseY - barHeight).toString());
+                barOui.setAttribute("width", barWidth.toString());
+                barOui.setAttribute("height", barHeight.toString());
+                const rxForOui = Math.min(effectiveRx, Math.floor(barHeight / 2));
+                barOui.setAttribute("rx", rxForOui.toString());
+                barOui.setAttribute("fill", fillColor);
+                barGroup.appendChild(barOui);
+                // texte centré dans la partie remplie
+                const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                txt.setAttribute("x", (x + barWidth / 2).toString());
+                txt.setAttribute("y", (baseY - (barHeight / 2)).toString());
+                txt.setAttribute("text-anchor", "middle");
+                txt.setAttribute("dominant-baseline", "middle");
+                const innerFontSize = (barHeight < fontSize) ? Math.max(8, Math.round(barHeight * 0.6)) : fontSize;
                 txt.setAttribute("font-size", innerFontSize.toString());
                 txt.setAttribute("fill", "#fff");
                 txt.textContent = percent + "%";
                 barGroup.appendChild(txt);
             }
             else {
-                // Valeur >= 5% (ou zéro) : dessiner la barre "normale" remplie (rect arrondi) comme avant
-                const barOui = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-                const barHeight = rawBarHeight; // proportionnelle
-                barOui.setAttribute("x", x.toString());
-                barOui.setAttribute("y", (baseY - barHeight).toString());
-                barOui.setAttribute("width", barWidth.toString());
-                barOui.setAttribute("height", barHeight.toString());
-                // limiter rx pour ne pas déformer si la hauteur est faible
-                const rxForOui = Math.min(effectiveRx, Math.floor(barHeight / 2));
-                barOui.setAttribute("rx", rxForOui.toString());
-                barOui.setAttribute("fill", fillColor);
-                barGroup.appendChild(barOui);
-                // Texte centré dans la partie remplie
-                if (barHeight > 0) {
-                    const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
-                    txt.setAttribute("x", (x + barWidth / 2).toString());
-                    const txtY = baseY - (barHeight / 2);
-                    txt.setAttribute("y", txtY.toString());
-                    txt.setAttribute("text-anchor", "middle");
-                    txt.setAttribute("dominant-baseline", "middle");
-                    const innerFontSize = (barHeight < fontSize) ? Math.max(8, Math.round(barHeight * 0.6)) : fontSize;
-                    txt.setAttribute("font-size", innerFontSize.toString());
-                    txt.setAttribute("fill", "#fff");
-                    txt.textContent = percent + "%";
-                    barGroup.appendChild(txt);
-                }
+                // zero value: optionally add a small baseline marker (keeps visuals consistent)
+                const marker = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                marker.setAttribute("x", (x + 2).toString());
+                marker.setAttribute("y", (baseY - 2).toString());
+                marker.setAttribute("width", (barWidth - 4).toString());
+                marker.setAttribute("height", "2");
+                marker.setAttribute("fill", colorNon);
+                barGroup.appendChild(marker);
             }
-            // Texte de l'année (toujours sous la barre)
+            // year label
             const yearTxt = document.createElementNS("http://www.w3.org/2000/svg", "text");
             yearTxt.setAttribute("x", (x + barWidth / 2).toString());
             yearTxt.setAttribute("y", (baseY + 20).toString());
@@ -266,7 +277,7 @@ class Visual {
             yearTxt.setAttribute("fill", "#888");
             yearTxt.textContent = cat;
             barGroup.appendChild(yearTxt);
-            // Gestion des événements de clic
+            // click selection
             barGroup.addEventListener("click", (event) => {
                 event.stopPropagation();
                 const mouseEvent = event;
@@ -279,14 +290,13 @@ class Visual {
             barGroups.push(barGroup);
             this.svg.appendChild(barGroup);
         });
-        // Clic sur le fond pour désélectionner
-        const clearSelection = (event) => {
+        // clic sur fond pour désélectionner
+        this.svg.onclick = (event) => {
+            event.stopPropagation();
             this.selectionManager.clear().then(() => {
                 this.updateSelection([], barGroups);
             });
         };
-        // Supprimer l'ancien listener s'il existe et ajouter le nouveau
-        this.svg.onclick = clearSelection;
     }
     updateSelection(selectedIds, barGroups) {
         // Mettre à jour l'opacité des barres selon la sélection

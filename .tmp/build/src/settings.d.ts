@@ -8,9 +8,29 @@ import FormattingSettingsModel = formattingSettings.Model;
 declare class DataPointCardSettings extends FormattingSettingsCard {
     fill: formattingSettings.ColorPicker;
     fontSize: formattingSettings.NumUpDown;
+    fontFamily: formattingSettings.TextInput;
+    fontColor: formattingSettings.ColorPicker;
     barRadius: formattingSettings.NumUpDown;
     barWidth: formattingSettings.NumUpDown;
     barSpacing: formattingSettings.NumUpDown;
+    valueDisplayMode: formattingSettings.NumUpDown;
+    decimalPlaces: formattingSettings.NumUpDown;
+    name: string;
+    displayName: string;
+    slices: Array<FormattingSettingsSlice>;
+}
+/**
+ * X Axis Formatting Card
+ */
+declare class XAxisCardSettings extends FormattingSettingsCard {
+    show: formattingSettings.ToggleSwitch;
+    title: formattingSettings.TextInput;
+    labelFormat: formattingSettings.TextInput;
+    labelRotation: formattingSettings.NumUpDown;
+    fontSize: formattingSettings.NumUpDown;
+    fontFamily: formattingSettings.TextInput;
+    fontColor: formattingSettings.ColorPicker;
+    fontWeight: formattingSettings.TextInput;
     name: string;
     displayName: string;
     slices: Array<FormattingSettingsSlice>;
@@ -21,6 +41,7 @@ declare class DataPointCardSettings extends FormattingSettingsCard {
 */
 export declare class VisualFormattingSettingsModel extends FormattingSettingsModel {
     dataPointCard: DataPointCardSettings;
-    cards: DataPointCardSettings[];
+    xAxisCard: XAxisCardSettings;
+    cards: (DataPointCardSettings | XAxisCardSettings)[];
 }
 export {};

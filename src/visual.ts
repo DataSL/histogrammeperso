@@ -122,6 +122,37 @@ export class Visual implements IVisual {
             ? (objects["dataPoint"] as any)["fontSize"]
             : 18;
 
+        // valeur / format des barres (nouveauté)
+        const dpObj: any = (objects && objects["dataPoint"]) || {};
+        const valueDisplayMode: number = typeof dpObj["valueDisplayMode"] === "number" ? dpObj["valueDisplayMode"] : 0; // 0=%,1=decimal,2=integer
+        const decimalPlaces: number = typeof dpObj["decimalPlaces"] === "number" ? Math.max(0, dpObj["decimalPlaces"]) : 2;
+
+        // police / couleur / taille des valeurs dans les barres
+        const barValueFontSize: number = typeof dpObj["fontSize"] === "number" ? dpObj["fontSize"] : 18;
+        const barValueFontFamily: string = typeof dpObj["fontFamily"] === "string" ? dpObj["fontFamily"] : "Segoe UI";
+        const barValueFontColor: string = readColor(dpObj["fontColor"]) || "#ffffff";
+
+        function formatBarValue(raw: number) {
+            if (valueDisplayMode === 0) {
+                const v = raw * 100;
+                return v.toFixed(decimalPlaces).replace('.', ',') + "%";
+            } else if (valueDisplayMode === 1) {
+                return raw.toFixed(decimalPlaces).replace('.', ',');
+            } else {
+                return Math.round(raw).toString();
+            }
+        }
+
+        // X axis options
+        const xAxisObj: any = (objects && objects["xAxis"]) || {};
+        const showXAxis: boolean = typeof xAxisObj["show"] === "boolean" ? xAxisObj["show"] : true;
+        const xAxisTitle: string = typeof xAxisObj["title"] === "string" ? xAxisObj["title"] : "";
+        const labelRotation: number = typeof xAxisObj["labelRotation"] === "number" ? xAxisObj["labelRotation"] : 0;
+        const xAxisFontSize: number = typeof xAxisObj["fontSize"] === "number" ? xAxisObj["fontSize"] : 14;
+        const xAxisFontFamily: string = typeof xAxisObj["fontFamily"] === "string" ? xAxisObj["fontFamily"] : "Segoe UI";
+        const xAxisFontColor: string = readColor(xAxisObj["fontColor"]) || "#888";
+        const xAxisFontWeight: string = typeof xAxisObj["fontWeight"] === "string" ? xAxisObj["fontWeight"] : "normal";
+
         // Calculer barWidth et espacement (une seule déclaration)
         let barWidth = Math.min(60, Math.max(10, Math.floor(width / Math.max(1, sortedCategories.length) * 0.6)));
         if (objects && objects["dataPoint"] && typeof (objects["dataPoint"] as any)["barWidth"] === "number") {
@@ -167,45 +198,9 @@ export class Visual implements IVisual {
         title.textContent = "DSP";
         this.svg.appendChild(title);
 
-        // Légende — horizontale par défaut, verticale en narrowMode
+        // Légende — si narrowMode on la masque (ne pas passer en verticale)
         const legendGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
-        if (narrowMode) {
-            // verticale empilée
-            let lx = 10;
-            let ly = 30;
-            const gap = 22;
-            const items = [
-                { color: colorNon, text: "Non" },
-                { color: fillColor, text: "Oui" }
-            ];
-            items.forEach(item => {
-                const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-                rect.setAttribute("x", lx.toString());
-                rect.setAttribute("y", ly.toString());
-                rect.setAttribute("width", "18");
-                rect.setAttribute("height", "10");
-                rect.setAttribute("rx", "6");
-                rect.setAttribute("fill", item.color);
-                legendGroup.appendChild(rect);
-
-                const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
-                txt.setAttribute("x", (lx + 22).toString());
-                txt.setAttribute("y", (ly + 9).toString());
-                txt.setAttribute("font-size", "12");
-                txt.setAttribute("fill", "#222");
-                txt.textContent = item.text;
-                // rotate text vertically for very narrow widths
-                if (slotWidth < 40 || width < 380) {
-                    // rotate around text center
-                    const cx = lx + 22;
-                    const cy = ly + 5;
-                    txt.setAttribute("transform", `rotate(-90 ${cx} ${cy})`);
-                }
-                legendGroup.appendChild(txt);
-
-                ly += gap;
-            });
-        } else {
+        if (!narrowMode) {
             // horizontale (ancien comportement)
             let legendX = 10;
             const legendY = 30;
@@ -240,8 +235,9 @@ export class Visual implements IVisual {
             legendOuiText.setAttribute("fill", "#222");
             legendOuiText.textContent = "Oui";
             legendGroup.appendChild(legendOuiText);
-        }
-        this.svg.appendChild(legendGroup);
+
+            this.svg.appendChild(legendGroup);
+        } // else : narrowMode -> ne rien afficher (masqué)
         this.svg.appendChild(title);
 
         // defs pour clipPaths (nouveau à chaque update)
@@ -253,7 +249,7 @@ export class Visual implements IVisual {
         sortedCategories.forEach((cat, i) => {
             const rawValue = sortedValues[i] || 0;
             const percentValue = rawValue * 100;
-            const percent = percentValue.toFixed(2).replace('.', ',');
+            const formattedValue = formatBarValue(rawValue);
             const x = paddingLeft + i * (barWidth + barSpacing);
 
             const rawBarHeight = Math.max(0, Math.min(1, rawValue)) * maxBarHeight;
@@ -298,7 +294,7 @@ export class Visual implements IVisual {
                 fillRect.setAttribute("clip-path", `url(#${clipId})`);
                 barGroup.appendChild(fillRect);
 
-                // texte centré sur la barre entière
+                // texte centré sur la barre entière (utilise formattedValue)
                 const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
                 const txtX = (x + barWidth / 2);
                 const txtY = (baseY - (maxBarHeight / 2));
@@ -306,9 +302,12 @@ export class Visual implements IVisual {
                 txt.setAttribute("y", txtY.toString());
                 txt.setAttribute("text-anchor", "middle");
                 txt.setAttribute("dominant-baseline", "middle");
-                txt.setAttribute("font-size", fontSize.toString());
-                txt.setAttribute("fill", "#fff");
-                txt.textContent = percent + "%";
+                // utiliser la taille configurée pour valeurs (barValueFontSize)
+                txt.setAttribute("font-size", barValueFontSize.toString());
+                txt.setAttribute("fill", barValueFontColor);
+                txt.setAttribute("font-family", barValueFontFamily);
+                // mettre le texte (valeur formatée)
+                txt.textContent = formattedValue;
                 if (narrowMode) {
                     // rotate around center of the text
                     txt.setAttribute("transform", `rotate(-90 ${txtX} ${txtY})`);
@@ -337,8 +336,10 @@ export class Visual implements IVisual {
                 txt.setAttribute("dominant-baseline", "middle");
                 const innerFontSize = (barHeight < fontSize) ? Math.max(8, Math.round(barHeight * 0.6)) : fontSize;
                 txt.setAttribute("font-size", innerFontSize.toString());
-                txt.setAttribute("fill", "#fff");
-                txt.textContent = percent + "%";
+                txt.setAttribute("fill", barValueFontColor);
+                txt.setAttribute("font-family", barValueFontFamily);
+                // mettre le texte (valeur formatée)
+                txt.textContent = formattedValue;
                 if (narrowMode) {
                     txt.setAttribute("transform", `rotate(-90 ${txtX} ${txtY})`);
                 }
@@ -354,20 +355,26 @@ export class Visual implements IVisual {
                 barGroup.appendChild(marker);
             }
 
-            // year label
-            const yearTxt = document.createElementNS("http://www.w3.org/2000/svg", "text");
-            const yearX = (x + barWidth / 2);
-            const yearY = (baseY + 20);
-            yearTxt.setAttribute("x", yearX.toString());
-            yearTxt.setAttribute("y", yearY.toString());
-            yearTxt.setAttribute("text-anchor", "middle");
-            yearTxt.setAttribute("font-size", "14");
-            yearTxt.setAttribute("fill", "#888");
-            yearTxt.textContent = cat;
-            if (narrowMode) {
-                yearTxt.setAttribute("transform", `rotate(-90 ${yearX} ${yearY})`);
+            // year label (respecter le choix d'affichage de l'axe X)
+            if (showXAxis) {
+                const yearTxt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                const yearX = (x + barWidth / 2);
+                const yearY = (baseY + 20);
+                yearTxt.setAttribute("x", yearX.toString());
+                yearTxt.setAttribute("y", yearY.toString());
+                yearTxt.setAttribute("text-anchor", "middle");
+                yearTxt.setAttribute("font-size", xAxisFontSize.toString());
+                yearTxt.setAttribute("fill", xAxisFontColor);
+                yearTxt.setAttribute("font-family", xAxisFontFamily);
+                if (xAxisFontWeight) {
+                    yearTxt.setAttribute("font-weight", xAxisFontWeight);
+                }
+                yearTxt.textContent = cat;
+                if (labelRotation) {
+                    yearTxt.setAttribute("transform", `rotate(${-labelRotation} ${yearX} ${yearY})`);
+                }
+                barGroup.appendChild(yearTxt);
             }
-            barGroup.appendChild(yearTxt);
 
             // click selection
             barGroup.addEventListener("click", (event) => {
@@ -383,6 +390,22 @@ export class Visual implements IVisual {
             barGroups.push(barGroup);
             this.svg.appendChild(barGroup);
         });
+
+        // dessiner le titre de l'axe X si demandé
+        if (showXAxis && xAxisTitle) {
+            const axisTitle = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            axisTitle.setAttribute("x", (paddingLeft + (sortedCategories.length * (barWidth + barSpacing) - barSpacing) / 2).toString());
+            axisTitle.setAttribute("y", (baseY + 48).toString());
+            axisTitle.setAttribute("text-anchor", "middle");
+            axisTitle.setAttribute("font-size", (xAxisFontSize).toString());
+            axisTitle.setAttribute("fill", xAxisFontColor);
+            axisTitle.setAttribute("font-family", xAxisFontFamily);
+            if (xAxisFontWeight) {
+                axisTitle.setAttribute("font-weight", xAxisFontWeight);
+            }
+            axisTitle.textContent = xAxisTitle;
+            this.svg.appendChild(axisTitle);
+        }
 
         // clic sur fond pour désélectionner
         this.svg.onclick = (event: MouseEvent) => {
@@ -412,6 +435,15 @@ export class Visual implements IVisual {
     public getFormattingModel(): powerbi.visuals.FormattingModel {
         return this.formattingSettingsService.buildFormattingModel(this.formattingSettings);
     }
+}
+
+// helper to get color value (handles ColorPicker object)
+function readColor(obj: any): string | undefined {
+    if (!obj) { return undefined; }
+    if (typeof obj === "string") { return obj; }
+    if (obj.solid && obj.solid.color) { return obj.solid.color; }
+    if (obj.value) { return obj.value; }
+    return undefined;
 }
 
 function lightenColor(hex: string, percent: number, alpha: number = 0.5): string {

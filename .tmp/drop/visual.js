@@ -113,6 +113,35 @@ class Visual {
         const fontSize = objects && objects["dataPoint"] && typeof objects["dataPoint"]["fontSize"] === "number"
             ? objects["dataPoint"]["fontSize"]
             : 18;
+        // valeur / format des barres (nouveauté)
+        const dpObj = (objects && objects["dataPoint"]) || {};
+        const valueDisplayMode = typeof dpObj["valueDisplayMode"] === "number" ? dpObj["valueDisplayMode"] : 0; // 0=%,1=decimal,2=integer
+        const decimalPlaces = typeof dpObj["decimalPlaces"] === "number" ? Math.max(0, dpObj["decimalPlaces"]) : 2;
+        // police / couleur / taille des valeurs dans les barres
+        const barValueFontSize = typeof dpObj["fontSize"] === "number" ? dpObj["fontSize"] : 18;
+        const barValueFontFamily = typeof dpObj["fontFamily"] === "string" ? dpObj["fontFamily"] : "Segoe UI";
+        const barValueFontColor = readColor(dpObj["fontColor"]) || "#ffffff";
+        function formatBarValue(raw) {
+            if (valueDisplayMode === 0) {
+                const v = raw * 100;
+                return v.toFixed(decimalPlaces).replace('.', ',') + "%";
+            }
+            else if (valueDisplayMode === 1) {
+                return raw.toFixed(decimalPlaces).replace('.', ',');
+            }
+            else {
+                return Math.round(raw).toString();
+            }
+        }
+        // X axis options
+        const xAxisObj = (objects && objects["xAxis"]) || {};
+        const showXAxis = typeof xAxisObj["show"] === "boolean" ? xAxisObj["show"] : true;
+        const xAxisTitle = typeof xAxisObj["title"] === "string" ? xAxisObj["title"] : "";
+        const labelRotation = typeof xAxisObj["labelRotation"] === "number" ? xAxisObj["labelRotation"] : 0;
+        const xAxisFontSize = typeof xAxisObj["fontSize"] === "number" ? xAxisObj["fontSize"] : 14;
+        const xAxisFontFamily = typeof xAxisObj["fontFamily"] === "string" ? xAxisObj["fontFamily"] : "Segoe UI";
+        const xAxisFontColor = readColor(xAxisObj["fontColor"]) || "#888";
+        const xAxisFontWeight = typeof xAxisObj["fontWeight"] === "string" ? xAxisObj["fontWeight"] : "normal";
         // Calculer barWidth et espacement (une seule déclaration)
         let barWidth = Math.min(60, Math.max(10, Math.floor(width / Math.max(1, sortedCategories.length) * 0.6)));
         if (objects && objects["dataPoint"] && typeof objects["dataPoint"]["barWidth"] === "number") {
@@ -153,44 +182,9 @@ class Visual {
         title.setAttribute("fill", "#222");
         title.textContent = "DSP";
         this.svg.appendChild(title);
-        // Légende — horizontale par défaut, verticale en narrowMode
+        // Légende — si narrowMode on la masque (ne pas passer en verticale)
         const legendGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
-        if (narrowMode) {
-            // verticale empilée
-            let lx = 10;
-            let ly = 30;
-            const gap = 22;
-            const items = [
-                { color: colorNon, text: "Non" },
-                { color: fillColor, text: "Oui" }
-            ];
-            items.forEach(item => {
-                const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-                rect.setAttribute("x", lx.toString());
-                rect.setAttribute("y", ly.toString());
-                rect.setAttribute("width", "18");
-                rect.setAttribute("height", "10");
-                rect.setAttribute("rx", "6");
-                rect.setAttribute("fill", item.color);
-                legendGroup.appendChild(rect);
-                const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
-                txt.setAttribute("x", (lx + 22).toString());
-                txt.setAttribute("y", (ly + 9).toString());
-                txt.setAttribute("font-size", "12");
-                txt.setAttribute("fill", "#222");
-                txt.textContent = item.text;
-                // rotate text vertically for very narrow widths
-                if (slotWidth < 40 || width < 380) {
-                    // rotate around text center
-                    const cx = lx + 22;
-                    const cy = ly + 5;
-                    txt.setAttribute("transform", `rotate(-90 ${cx} ${cy})`);
-                }
-                legendGroup.appendChild(txt);
-                ly += gap;
-            });
-        }
-        else {
+        if (!narrowMode) {
             // horizontale (ancien comportement)
             let legendX = 10;
             const legendY = 30;
@@ -225,8 +219,8 @@ class Visual {
             legendOuiText.setAttribute("fill", "#222");
             legendOuiText.textContent = "Oui";
             legendGroup.appendChild(legendOuiText);
-        }
-        this.svg.appendChild(legendGroup);
+            this.svg.appendChild(legendGroup);
+        } // else : narrowMode -> ne rien afficher (masqué)
         this.svg.appendChild(title);
         // defs pour clipPaths (nouveau à chaque update)
         const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
@@ -236,7 +230,7 @@ class Visual {
         sortedCategories.forEach((cat, i) => {
             const rawValue = sortedValues[i] || 0;
             const percentValue = rawValue * 100;
-            const percent = percentValue.toFixed(2).replace('.', ',');
+            const formattedValue = formatBarValue(rawValue);
             const x = paddingLeft + i * (barWidth + barSpacing);
             const rawBarHeight = Math.max(0, Math.min(1, rawValue)) * maxBarHeight;
             const visibleHeight = rawBarHeight > 0 ? rawBarHeight : 0;
@@ -274,7 +268,7 @@ class Visual {
                 fillRect.setAttribute("fill", fillColor);
                 fillRect.setAttribute("clip-path", `url(#${clipId})`);
                 barGroup.appendChild(fillRect);
-                // texte centré sur la barre entière
+                // texte centré sur la barre entière (utilise formattedValue)
                 const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
                 const txtX = (x + barWidth / 2);
                 const txtY = (baseY - (maxBarHeight / 2));
@@ -282,9 +276,12 @@ class Visual {
                 txt.setAttribute("y", txtY.toString());
                 txt.setAttribute("text-anchor", "middle");
                 txt.setAttribute("dominant-baseline", "middle");
-                txt.setAttribute("font-size", fontSize.toString());
-                txt.setAttribute("fill", "#fff");
-                txt.textContent = percent + "%";
+                // utiliser la taille configurée pour valeurs (barValueFontSize)
+                txt.setAttribute("font-size", barValueFontSize.toString());
+                txt.setAttribute("fill", barValueFontColor);
+                txt.setAttribute("font-family", barValueFontFamily);
+                // mettre le texte (valeur formatée)
+                txt.textContent = formattedValue;
                 if (narrowMode) {
                     // rotate around center of the text
                     txt.setAttribute("transform", `rotate(-90 ${txtX} ${txtY})`);
@@ -313,8 +310,10 @@ class Visual {
                 txt.setAttribute("dominant-baseline", "middle");
                 const innerFontSize = (barHeight < fontSize) ? Math.max(8, Math.round(barHeight * 0.6)) : fontSize;
                 txt.setAttribute("font-size", innerFontSize.toString());
-                txt.setAttribute("fill", "#fff");
-                txt.textContent = percent + "%";
+                txt.setAttribute("fill", barValueFontColor);
+                txt.setAttribute("font-family", barValueFontFamily);
+                // mettre le texte (valeur formatée)
+                txt.textContent = formattedValue;
                 if (narrowMode) {
                     txt.setAttribute("transform", `rotate(-90 ${txtX} ${txtY})`);
                 }
@@ -330,20 +329,26 @@ class Visual {
                 marker.setAttribute("fill", colorNon);
                 barGroup.appendChild(marker);
             }
-            // year label
-            const yearTxt = document.createElementNS("http://www.w3.org/2000/svg", "text");
-            const yearX = (x + barWidth / 2);
-            const yearY = (baseY + 20);
-            yearTxt.setAttribute("x", yearX.toString());
-            yearTxt.setAttribute("y", yearY.toString());
-            yearTxt.setAttribute("text-anchor", "middle");
-            yearTxt.setAttribute("font-size", "14");
-            yearTxt.setAttribute("fill", "#888");
-            yearTxt.textContent = cat;
-            if (narrowMode) {
-                yearTxt.setAttribute("transform", `rotate(-90 ${yearX} ${yearY})`);
+            // year label (respecter le choix d'affichage de l'axe X)
+            if (showXAxis) {
+                const yearTxt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                const yearX = (x + barWidth / 2);
+                const yearY = (baseY + 20);
+                yearTxt.setAttribute("x", yearX.toString());
+                yearTxt.setAttribute("y", yearY.toString());
+                yearTxt.setAttribute("text-anchor", "middle");
+                yearTxt.setAttribute("font-size", xAxisFontSize.toString());
+                yearTxt.setAttribute("fill", xAxisFontColor);
+                yearTxt.setAttribute("font-family", xAxisFontFamily);
+                if (xAxisFontWeight) {
+                    yearTxt.setAttribute("font-weight", xAxisFontWeight);
+                }
+                yearTxt.textContent = cat;
+                if (labelRotation) {
+                    yearTxt.setAttribute("transform", `rotate(${-labelRotation} ${yearX} ${yearY})`);
+                }
+                barGroup.appendChild(yearTxt);
             }
-            barGroup.appendChild(yearTxt);
             // click selection
             barGroup.addEventListener("click", (event) => {
                 event.stopPropagation();
@@ -357,6 +362,21 @@ class Visual {
             barGroups.push(barGroup);
             this.svg.appendChild(barGroup);
         });
+        // dessiner le titre de l'axe X si demandé
+        if (showXAxis && xAxisTitle) {
+            const axisTitle = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            axisTitle.setAttribute("x", (paddingLeft + (sortedCategories.length * (barWidth + barSpacing) - barSpacing) / 2).toString());
+            axisTitle.setAttribute("y", (baseY + 48).toString());
+            axisTitle.setAttribute("text-anchor", "middle");
+            axisTitle.setAttribute("font-size", (xAxisFontSize).toString());
+            axisTitle.setAttribute("fill", xAxisFontColor);
+            axisTitle.setAttribute("font-family", xAxisFontFamily);
+            if (xAxisFontWeight) {
+                axisTitle.setAttribute("font-weight", xAxisFontWeight);
+            }
+            axisTitle.textContent = xAxisTitle;
+            this.svg.appendChild(axisTitle);
+        }
         // clic sur fond pour désélectionner
         this.svg.onclick = (event) => {
             event.stopPropagation();
@@ -384,6 +404,22 @@ class Visual {
     getFormattingModel() {
         return this.formattingSettingsService.buildFormattingModel(this.formattingSettings);
     }
+}
+// helper to get color value (handles ColorPicker object)
+function readColor(obj) {
+    if (!obj) {
+        return undefined;
+    }
+    if (typeof obj === "string") {
+        return obj;
+    }
+    if (obj.solid && obj.solid.color) {
+        return obj.solid.color;
+    }
+    if (obj.value) {
+        return obj.value;
+    }
+    return undefined;
 }
 function lightenColor(hex, percent, alpha = 0.5) {
     // Convert hex to RGB
@@ -454,6 +490,17 @@ class DataPointCardSettings extends FormattingSettingsCard {
         displayName: "Text Size",
         value: 18
     });
+    fontFamily = new powerbi_visuals_utils_formattingmodel__WEBPACK_IMPORTED_MODULE_0__/* .formattingSettings.TextInput */ .z.ks({
+        name: "fontFamily",
+        displayName: "Font family for values",
+        value: "Segoe UI",
+        placeholder: "e.g. Segoe UI, Arial"
+    });
+    fontColor = new powerbi_visuals_utils_formattingmodel__WEBPACK_IMPORTED_MODULE_0__/* .formattingSettings.ColorPicker */ .z.sk({
+        name: "fontColor",
+        displayName: "Font color for values",
+        value: { value: "#ffffff" }
+    });
     barRadius = new powerbi_visuals_utils_formattingmodel__WEBPACK_IMPORTED_MODULE_0__/* .formattingSettings.NumUpDown */ .z.iB({
         name: "barRadius",
         displayName: "Bar Radius",
@@ -462,21 +509,97 @@ class DataPointCardSettings extends FormattingSettingsCard {
     barWidth = new powerbi_visuals_utils_formattingmodel__WEBPACK_IMPORTED_MODULE_0__/* .formattingSettings.NumUpDown */ .z.iB({
         name: "barWidth",
         displayName: "Bar Width",
-        value: 60 // valeur par défaut
+        value: 60
     });
     barSpacing = new powerbi_visuals_utils_formattingmodel__WEBPACK_IMPORTED_MODULE_0__/* .formattingSettings.NumUpDown */ .z.iB({
         name: "barSpacing",
         displayName: "Bar Spacing",
         value: 36
     });
+    // mode d'affichage des valeurs : 0 = %, 1 = decimal, 2 = integer
+    valueDisplayMode = new powerbi_visuals_utils_formattingmodel__WEBPACK_IMPORTED_MODULE_0__/* .formattingSettings.NumUpDown */ .z.iB({
+        name: "valueDisplayMode",
+        displayName: "Value display mode (0=%,1=decimal,2=integer)",
+        value: 0
+    });
+    decimalPlaces = new powerbi_visuals_utils_formattingmodel__WEBPACK_IMPORTED_MODULE_0__/* .formattingSettings.NumUpDown */ .z.iB({
+        name: "decimalPlaces",
+        displayName: "Decimal places for values",
+        value: 2
+    });
     name = "dataPoint";
     displayName = "Data colors";
     slices = [
         this.fill,
         this.fontSize,
+        this.fontFamily,
+        this.fontColor,
         this.barRadius,
         this.barWidth,
-        this.barSpacing
+        this.barSpacing,
+        this.valueDisplayMode,
+        this.decimalPlaces
+    ];
+}
+/**
+ * X Axis Formatting Card
+ */
+class XAxisCardSettings extends FormattingSettingsCard {
+    show = new powerbi_visuals_utils_formattingmodel__WEBPACK_IMPORTED_MODULE_0__/* .formattingSettings.ToggleSwitch */ .z.jF({
+        name: "show",
+        displayName: "Show X axis labels",
+        value: true
+    });
+    title = new powerbi_visuals_utils_formattingmodel__WEBPACK_IMPORTED_MODULE_0__/* .formattingSettings.TextInput */ .z.ks({
+        name: "title",
+        displayName: "X axis title",
+        value: "",
+        placeholder: ""
+    });
+    labelFormat = new powerbi_visuals_utils_formattingmodel__WEBPACK_IMPORTED_MODULE_0__/* .formattingSettings.TextInput */ .z.ks({
+        name: "labelFormat",
+        displayName: "Label format string (optional)",
+        value: "",
+        placeholder: ""
+    });
+    labelRotation = new powerbi_visuals_utils_formattingmodel__WEBPACK_IMPORTED_MODULE_0__/* .formattingSettings.NumUpDown */ .z.iB({
+        name: "labelRotation",
+        displayName: "Label rotation (deg)",
+        value: 0
+    });
+    fontSize = new powerbi_visuals_utils_formattingmodel__WEBPACK_IMPORTED_MODULE_0__/* .formattingSettings.NumUpDown */ .z.iB({
+        name: "fontSize",
+        displayName: "X axis font size",
+        value: 14
+    });
+    fontFamily = new powerbi_visuals_utils_formattingmodel__WEBPACK_IMPORTED_MODULE_0__/* .formattingSettings.TextInput */ .z.ks({
+        name: "fontFamily",
+        displayName: "X axis font family",
+        value: "Segoe UI",
+        placeholder: "e.g. Segoe UI, Arial"
+    });
+    fontColor = new powerbi_visuals_utils_formattingmodel__WEBPACK_IMPORTED_MODULE_0__/* .formattingSettings.ColorPicker */ .z.sk({
+        name: "fontColor",
+        displayName: "X axis font color",
+        value: { value: "#888888" }
+    });
+    fontWeight = new powerbi_visuals_utils_formattingmodel__WEBPACK_IMPORTED_MODULE_0__/* .formattingSettings.TextInput */ .z.ks({
+        name: "fontWeight",
+        displayName: "X axis font weight",
+        value: "normal",
+        placeholder: "normal or bold"
+    });
+    name = "xAxis";
+    displayName = "X axis";
+    slices = [
+        this.show,
+        this.title,
+        this.labelFormat,
+        this.labelRotation,
+        this.fontSize,
+        this.fontFamily,
+        this.fontColor,
+        this.fontWeight
     ];
 }
 /**
@@ -484,9 +607,9 @@ class DataPointCardSettings extends FormattingSettingsCard {
 *
 */
 class VisualFormattingSettingsModel extends FormattingSettingsModel {
-    // Create formatting settings model formatting cards
     dataPointCard = new DataPointCardSettings();
-    cards = [this.dataPointCard];
+    xAxisCard = new XAxisCardSettings();
+    cards = [this.dataPointCard, this.xAxisCard];
 }
 
 
@@ -767,9 +890,11 @@ class FormattingSettingsService {
 /* harmony export */   St: () => (/* binding */ CompositeCard),
 /* harmony export */   Tn: () => (/* binding */ SimpleCard),
 /* harmony export */   iB: () => (/* binding */ NumUpDown),
+/* harmony export */   jF: () => (/* binding */ ToggleSwitch),
+/* harmony export */   ks: () => (/* binding */ TextInput),
 /* harmony export */   sk: () => (/* binding */ ColorPicker)
 /* harmony export */ });
-/* unused harmony exports CardGroupEntity, Group, SimpleSlice, AlignmentGroup, ToggleSwitch, Slider, DatePicker, ItemDropdown, AutoDropdown, DurationPicker, ErrorRangeControl, FieldPicker, ItemFlagsSelection, AutoFlagsSelection, TextInput, TextArea, FontPicker, GradientBar, ImageUpload, ListEditor, ReadOnlyText, ShapeMapSelector, CompositeSlice, FontControl, MarginPadding, Container, ContainerItem */
+/* unused harmony exports CardGroupEntity, Group, SimpleSlice, AlignmentGroup, Slider, DatePicker, ItemDropdown, AutoDropdown, DurationPicker, ErrorRangeControl, FieldPicker, ItemFlagsSelection, AutoFlagsSelection, TextArea, FontPicker, GradientBar, ImageUpload, ListEditor, ReadOnlyText, ShapeMapSelector, CompositeSlice, FontControl, MarginPadding, Container, ContainerItem */
 /* harmony import */ var _utils_FormattingSettingsUtils__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(639);
 /**
  * Powerbi utils components classes for custom visual formatting pane objects

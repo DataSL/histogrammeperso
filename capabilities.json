@@ -1,4 +1,3 @@
-
 {
     "dataRoles": [
         { "displayName": "Category Data", "name": "category", "kind": "Grouping" },
@@ -8,24 +7,65 @@
         "dataPoint": {
             "properties": {
                 "fill": {
-                    "displayName": "Bar Color",
                     "type": { "fill": { "solid": { "color": true } } }
                 },
                 "fontSize": {
-                    "displayName": "Text Size",
                     "type": { "numeric": true }
                 },
+                "fontFamily": {
+                    "displayName": "Font family for values",
+                    "type": { "text": true }
+                },
+                "fontColor": {
+                    "displayName": "Font color for values",
+                    "type": { "fill": { "solid": { "color": true } } }
+                },
                 "barRadius": {
-                    "displayName": "Bar Radius",
                     "type": { "numeric": true }
                 },
                 "barWidth": {
-                    "displayName": "Bar Width",
                     "type": { "numeric": true }
                 },
-                "barSpacing": {                       
-                    "displayName": "Bar Spacing",
+                "barSpacing": {
                     "type": { "numeric": true }
+                },
+                "valueDisplayMode": {
+                    "type": { "numeric": true }
+                },
+                "decimalPlaces": {
+                    "type": { "numeric": true }
+                }
+            }
+        },
+        "xAxis": {
+            "properties": {
+                "show": {
+                    "type": { "bool": true }
+                },
+                "title": {
+                    "type": { "text": true }
+                },
+                "labelFormat": {
+                    "type": { "text": true }
+                },
+                "labelRotation": {
+                    "type": { "numeric": true }
+                },
+                "fontSize": {
+                    "displayName": "X axis font size",
+                    "type": { "numeric": true }
+                },
+                "fontFamily": {
+                    "displayName": "X axis font family",
+                    "type": { "text": true }
+                },
+                "fontColor": {
+                    "displayName": "X axis font color",
+                    "type": { "fill": { "solid": { "color": true } } }
+                },
+                "fontWeight": {
+                    "displayName": "X axis font weight (normal/bold)",
+                    "type": { "text": true }
                 }
             }
         }

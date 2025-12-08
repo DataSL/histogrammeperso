@@ -49,6 +49,19 @@ class DataPointCardSettings extends FormattingSettingsCard {
         value: 18
     });
 
+    fontFamily = new formattingSettings.TextInput({
+        name: "fontFamily",
+        displayName: "Font family for values",
+        value: "Segoe UI",
+        placeholder: "e.g. Segoe UI, Arial"
+    });
+
+    fontColor = new formattingSettings.ColorPicker({
+        name: "fontColor",
+        displayName: "Font color for values",
+        value: { value: "#ffffff" }
+    });
+
     barRadius = new formattingSettings.NumUpDown({
         name: "barRadius",
         displayName: "Bar Radius",
@@ -58,13 +71,26 @@ class DataPointCardSettings extends FormattingSettingsCard {
     barWidth = new formattingSettings.NumUpDown({
         name: "barWidth",
         displayName: "Bar Width",
-        value: 60 // valeur par défaut
+        value: 60
     });
 
-    barSpacing = new formattingSettings.NumUpDown({   // <-- ajouté
+    barSpacing = new formattingSettings.NumUpDown({
         name: "barSpacing",
         displayName: "Bar Spacing",
         value: 36
+    });
+
+    // mode d'affichage des valeurs : 0 = %, 1 = decimal, 2 = integer
+    valueDisplayMode = new formattingSettings.NumUpDown({
+        name: "valueDisplayMode",
+        displayName: "Value display mode (0=%,1=decimal,2=integer)",
+        value: 0
+    });
+
+    decimalPlaces = new formattingSettings.NumUpDown({
+        name: "decimalPlaces",
+        displayName: "Decimal places for values",
+        value: 2
     });
 
     name: string = "dataPoint";
@@ -72,9 +98,83 @@ class DataPointCardSettings extends FormattingSettingsCard {
     slices: Array<FormattingSettingsSlice> = [
         this.fill,
         this.fontSize,
+        this.fontFamily,
+        this.fontColor,
         this.barRadius,
-        this.barWidth, // <-- AJOUT ICI
-        this.barSpacing
+        this.barWidth,
+        this.barSpacing,
+        this.valueDisplayMode,
+        this.decimalPlaces
+    ];
+}
+
+/**
+ * X Axis Formatting Card
+ */
+class XAxisCardSettings extends FormattingSettingsCard {
+    show = new formattingSettings.ToggleSwitch({
+        name: "show",
+        displayName: "Show X axis labels",
+        value: true
+    });
+
+    title = new formattingSettings.TextInput({
+        name: "title",
+        displayName: "X axis title",
+        value: "",
+        placeholder: ""
+    });
+
+    labelFormat = new formattingSettings.TextInput({
+        name: "labelFormat",
+        displayName: "Label format string (optional)",
+        value: "",
+        placeholder: ""
+    });
+
+    labelRotation = new formattingSettings.NumUpDown({
+        name: "labelRotation",
+        displayName: "Label rotation (deg)",
+        value: 0
+    });
+
+    fontSize = new formattingSettings.NumUpDown({
+        name: "fontSize",
+        displayName: "X axis font size",
+        value: 14
+    });
+
+    fontFamily = new formattingSettings.TextInput({
+        name: "fontFamily",
+        displayName: "X axis font family",
+        value: "Segoe UI",
+        placeholder: "e.g. Segoe UI, Arial"
+    });
+
+    fontColor = new formattingSettings.ColorPicker({
+        name: "fontColor",
+        displayName: "X axis font color",
+        value: { value: "#888888" }
+    });
+
+    fontWeight = new formattingSettings.TextInput({
+        name: "fontWeight",
+        displayName: "X axis font weight",
+        value: "normal",
+        placeholder: "normal or bold"
+    });
+
+    name: string = "xAxis";
+    displayName: string = "X axis";
+    slices: Array<FormattingSettingsSlice> = [
+        this.show,
+        this.title,
+        this.labelFormat,
+        this.labelRotation,
+        this.fontSize,
+        this.fontFamily,
+        this.fontColor,
+        this.fontWeight
     ];
 }
 
@@ -83,8 +183,8 @@ class DataPointCardSettings extends FormattingSettingsCard {
 *
 */
 export class VisualFormattingSettingsModel extends FormattingSettingsModel {
-    // Create formatting settings model formatting cards
     dataPointCard = new DataPointCardSettings();
+    xAxisCard = new XAxisCardSettings();
 
-    cards = [this.dataPointCard];
+    cards = [this.dataPointCard, this.xAxisCard];
 }

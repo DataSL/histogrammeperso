@@ -141,7 +141,10 @@ class Visual {
         const svgHeight = Math.max(height, Math.ceil(maxBarHeight + 120));
         this.svg.setAttribute("width", svgWidth.toString());
         this.svg.setAttribute("height", svgHeight.toString());
-        // Titre + légende
+        // DETECTION MODE "NARROW" (peut ajuster seuil)
+        const slotWidth = barWidth + barSpacing;
+        const narrowMode = slotWidth < 70 || width < 480 || svgWidth > width;
+        // Titre
         const title = document.createElementNS("http://www.w3.org/2000/svg", "text");
         title.setAttribute("x", "10");
         title.setAttribute("y", "20");
@@ -150,40 +153,79 @@ class Visual {
         title.setAttribute("fill", "#222");
         title.textContent = "DSP";
         this.svg.appendChild(title);
+        // Légende — horizontale par défaut, verticale en narrowMode
         const legendGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
-        let legendX = 10;
-        const legendY = 30;
-        const legendNon = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-        legendNon.setAttribute("x", legendX.toString());
-        legendNon.setAttribute("y", legendY.toString());
-        legendNon.setAttribute("width", "30");
-        legendNon.setAttribute("height", "12");
-        legendNon.setAttribute("rx", "6");
-        legendNon.setAttribute("fill", colorNon);
-        legendGroup.appendChild(legendNon);
-        const legendNonText = document.createElementNS("http://www.w3.org/2000/svg", "text");
-        legendNonText.setAttribute("x", (legendX + 35).toString());
-        legendNonText.setAttribute("y", (legendY + 10).toString());
-        legendNonText.setAttribute("font-size", "14");
-        legendNonText.setAttribute("fill", "#222");
-        legendNonText.textContent = "Non";
-        legendGroup.appendChild(legendNonText);
-        legendX += 80;
-        const legendOui = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-        legendOui.setAttribute("x", legendX.toString());
-        legendOui.setAttribute("y", legendY.toString());
-        legendOui.setAttribute("width", "30");
-        legendOui.setAttribute("height", "12");
-        legendOui.setAttribute("rx", "6");
-        legendOui.setAttribute("fill", fillColor);
-        legendGroup.appendChild(legendOui);
-        const legendOuiText = document.createElementNS("http://www.w3.org/2000/svg", "text");
-        legendOuiText.setAttribute("x", (legendX + 35).toString());
-        legendOuiText.setAttribute("y", (legendY + 10).toString());
-        legendOuiText.setAttribute("font-size", "14");
-        legendOuiText.setAttribute("fill", "#222");
-        legendOuiText.textContent = "Oui";
-        legendGroup.appendChild(legendOuiText);
+        if (narrowMode) {
+            // verticale empilée
+            let lx = 10;
+            let ly = 30;
+            const gap = 22;
+            const items = [
+                { color: colorNon, text: "Non" },
+                { color: fillColor, text: "Oui" }
+            ];
+            items.forEach(item => {
+                const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                rect.setAttribute("x", lx.toString());
+                rect.setAttribute("y", ly.toString());
+                rect.setAttribute("width", "18");
+                rect.setAttribute("height", "10");
+                rect.setAttribute("rx", "6");
+                rect.setAttribute("fill", item.color);
+                legendGroup.appendChild(rect);
+                const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                txt.setAttribute("x", (lx + 22).toString());
+                txt.setAttribute("y", (ly + 9).toString());
+                txt.setAttribute("font-size", "12");
+                txt.setAttribute("fill", "#222");
+                txt.textContent = item.text;
+                // rotate text vertically for very narrow widths
+                if (slotWidth < 40 || width < 380) {
+                    // rotate around text center
+                    const cx = lx + 22;
+                    const cy = ly + 5;
+                    txt.setAttribute("transform", `rotate(-90 ${cx} ${cy})`);
+                }
+                legendGroup.appendChild(txt);
+                ly += gap;
+            });
+        }
+        else {
+            // horizontale (ancien comportement)
+            let legendX = 10;
+            const legendY = 30;
+            const legendNon = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+            legendNon.setAttribute("x", legendX.toString());
+            legendNon.setAttribute("y", legendY.toString());
+            legendNon.setAttribute("width", "30");
+            legendNon.setAttribute("height", "12");
+            legendNon.setAttribute("rx", "6");
+            legendNon.setAttribute("fill", colorNon);
+            legendGroup.appendChild(legendNon);
+            const legendNonText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            legendNonText.setAttribute("x", (legendX + 35).toString());
+            legendNonText.setAttribute("y", (legendY + 10).toString());
+            legendNonText.setAttribute("font-size", "14");
+            legendNonText.setAttribute("fill", "#222");
+            legendNonText.textContent = "Non";
+            legendGroup.appendChild(legendNonText);
+            legendX += 80;
+            const legendOui = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+            legendOui.setAttribute("x", legendX.toString());
+            legendOui.setAttribute("y", legendY.toString());
+            legendOui.setAttribute("width", "30");
+            legendOui.setAttribute("height", "12");
+            legendOui.setAttribute("rx", "6");
+            legendOui.setAttribute("fill", fillColor);
+            legendGroup.appendChild(legendOui);
+            const legendOuiText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            legendOuiText.setAttribute("x", (legendX + 35).toString());
+            legendOuiText.setAttribute("y", (legendY + 10).toString());
+            legendOuiText.setAttribute("font-size", "14");
+            legendOuiText.setAttribute("fill", "#222");
+            legendOuiText.textContent = "Oui";
+            legendGroup.appendChild(legendOuiText);
+        }
         this.svg.appendChild(legendGroup);
         this.svg.appendChild(title);
         // defs pour clipPaths (nouveau à chaque update)
@@ -234,13 +276,19 @@ class Visual {
                 barGroup.appendChild(fillRect);
                 // texte centré sur la barre entière
                 const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
-                txt.setAttribute("x", (x + barWidth / 2).toString());
-                txt.setAttribute("y", (baseY - (maxBarHeight / 2)).toString());
+                const txtX = (x + barWidth / 2);
+                const txtY = (baseY - (maxBarHeight / 2));
+                txt.setAttribute("x", txtX.toString());
+                txt.setAttribute("y", txtY.toString());
                 txt.setAttribute("text-anchor", "middle");
                 txt.setAttribute("dominant-baseline", "middle");
                 txt.setAttribute("font-size", fontSize.toString());
                 txt.setAttribute("fill", "#fff");
                 txt.textContent = percent + "%";
+                if (narrowMode) {
+                    // rotate around center of the text
+                    txt.setAttribute("transform", `rotate(-90 ${txtX} ${txtY})`);
+                }
                 barGroup.appendChild(txt);
             }
             else if (visibleHeight > 0) {
@@ -257,14 +305,19 @@ class Visual {
                 barGroup.appendChild(barOui);
                 // texte centré dans la partie remplie
                 const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
-                txt.setAttribute("x", (x + barWidth / 2).toString());
-                txt.setAttribute("y", (baseY - (barHeight / 2)).toString());
+                const txtX = (x + barWidth / 2);
+                const txtY = (baseY - (barHeight / 2));
+                txt.setAttribute("x", txtX.toString());
+                txt.setAttribute("y", txtY.toString());
                 txt.setAttribute("text-anchor", "middle");
                 txt.setAttribute("dominant-baseline", "middle");
                 const innerFontSize = (barHeight < fontSize) ? Math.max(8, Math.round(barHeight * 0.6)) : fontSize;
                 txt.setAttribute("font-size", innerFontSize.toString());
                 txt.setAttribute("fill", "#fff");
                 txt.textContent = percent + "%";
+                if (narrowMode) {
+                    txt.setAttribute("transform", `rotate(-90 ${txtX} ${txtY})`);
+                }
                 barGroup.appendChild(txt);
             }
             else {
@@ -279,12 +332,17 @@ class Visual {
             }
             // year label
             const yearTxt = document.createElementNS("http://www.w3.org/2000/svg", "text");
-            yearTxt.setAttribute("x", (x + barWidth / 2).toString());
-            yearTxt.setAttribute("y", (baseY + 20).toString());
+            const yearX = (x + barWidth / 2);
+            const yearY = (baseY + 20);
+            yearTxt.setAttribute("x", yearX.toString());
+            yearTxt.setAttribute("y", yearY.toString());
             yearTxt.setAttribute("text-anchor", "middle");
             yearTxt.setAttribute("font-size", "14");
             yearTxt.setAttribute("fill", "#888");
             yearTxt.textContent = cat;
+            if (narrowMode) {
+                yearTxt.setAttribute("transform", `rotate(-90 ${yearX} ${yearY})`);
+            }
             barGroup.appendChild(yearTxt);
             // click selection
             barGroup.addEventListener("click", (event) => {

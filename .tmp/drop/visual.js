@@ -276,7 +276,7 @@ class Visual {
             barNon.setAttribute("rx", effectiveRx.toString());
             barNon.setAttribute("fill", colorNon);
             barGroup.appendChild(barNon);
-            if (percentValue < 5 && visibleHeight > 0) {
+            if (percentValue < 19.9 && visibleHeight > 0) {
                 // clip + fill so fill respects rounded background shape
                 const clipId = `clip-bar-${i}-${Date.now()}`;
                 const clipPath = document.createElementNS("http://www.w3.org/2000/svg", "clipPath");

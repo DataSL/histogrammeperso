@@ -182,16 +182,16 @@ export class Visual implements IVisual {
             // fallback conservateur — laisser barSpacing calculé
         }
 
-        const maxBarHeight = Math.floor(height * 0.6);
-        // Utiliser bottomMargin au lieu de 0.8 fixe
+        // bottomMargin reste en pixels
         const baseY = height - bottomMargin;
+        const maxBarHeight = Math.floor(baseY * 0.8); // utiliser 80% de l'espace disponible au-dessus de la marge
 
         // Calculer taille SVG nécessaire et adapter pour activer scroll si besoin
         const paddingLeft = 40;
         const paddingRight = 40;
         const totalNeededWidth = paddingLeft + sortedCategories.length * (barWidth + barSpacing) - barSpacing + paddingRight;
         const svgWidth = Math.max(width, Math.ceil(totalNeededWidth));
-        const svgHeight = Math.max(height, Math.ceil(maxBarHeight + 120));
+        const svgHeight = Math.max(height, Math.ceil(maxBarHeight + bottomMargin + 60));
 
         this.svg.setAttribute("width", svgWidth.toString());
         this.svg.setAttribute("height", svgHeight.toString());
@@ -260,7 +260,6 @@ export class Visual implements IVisual {
         const barGroups: SVGGElement[] = [];
         
         // ÉTAPE 1: Déterminer si AU MOINS UN label nécessite une rotation
-        // On utilise maintenant l'espace vertical disponible (bottomMargin) au lieu de barWidth
         let needsRotation = false;
         const availableSpaceForLabel = bottomMargin - 25; // espace disponible pour le label (en retirant padding)
         
@@ -329,9 +328,10 @@ export class Visual implements IVisual {
                 fillRect.setAttribute("clip-path", `url(#${clipId})`);
                 barGroup.appendChild(fillRect);
 
+                // Texte toujours au milieu de l'arrière-plan en narrowMode
                 const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
                 const txtX = (x + barWidth / 2);
-                const txtY = (baseY - (maxBarHeight / 2));
+                const txtY = narrowMode ? (baseY - (maxBarHeight / 2)) : (baseY - (maxBarHeight / 2));
                 txt.setAttribute("x", txtX.toString());
                 txt.setAttribute("y", txtY.toString());
                 txt.setAttribute("text-anchor", "middle");
@@ -356,14 +356,15 @@ export class Visual implements IVisual {
                 barOui.setAttribute("fill", fillColor);
                 barGroup.appendChild(barOui);
 
+                // Texte au milieu de l'arrière-plan en narrowMode, sinon au milieu de la barre
                 const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
                 const txtX = (x + barWidth / 2);
-                const txtY = (baseY - (barHeight / 2));
+                const txtY = narrowMode ? (baseY - (maxBarHeight / 2)) : (baseY - (barHeight / 2));
                 txt.setAttribute("x", txtX.toString());
                 txt.setAttribute("y", txtY.toString());
                 txt.setAttribute("text-anchor", "middle");
                 txt.setAttribute("dominant-baseline", "middle");
-                const innerFontSize = (barHeight < fontSize) ? Math.max(8, Math.round(barHeight * 0.6)) : fontSize;
+                const innerFontSize = narrowMode ? fontSize : ((barHeight < fontSize) ? Math.max(8, Math.round(barHeight * 0.6)) : fontSize);
                 txt.setAttribute("font-size", innerFontSize.toString());
                 txt.setAttribute("fill", barValueFontColor);
                 txt.setAttribute("font-family", barValueFontFamily);

@@ -152,7 +152,17 @@ class XAxisCardSettings extends FormattingSettingsCard {
     bottomMargin = new formattingSettings.NumUpDown({
         name: "bottomMargin",
         displayName: "Bottom margin (spacing for X axis)",
-        value: 80
+        value: 80,
+        options: {
+            minValue: {
+                type: powerbi.visuals.ValidatorType.Min,
+                value: 40
+            },
+            maxValue: {
+                type: powerbi.visuals.ValidatorType.Max,
+                value: 80
+            }
+        }
     });
 
     name: string = "xAxis";

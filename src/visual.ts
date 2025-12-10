@@ -163,7 +163,17 @@ export class Visual implements IVisual {
         const xAxisFontFamily: string = typeof xAxisObj["fontFamily"] === "string" ? xAxisObj["fontFamily"] : "Segoe UI";
         const xAxisFontColor: string = readColor(xAxisObj["fontColor"]) || "#888";
         const bottomMargin: number = typeof xAxisObj["bottomMargin"] === "number" ? Math.max(40, xAxisObj["bottomMargin"]) : 80;
-        const showBackground: boolean = typeof xAxisObj["showBackground"] === "boolean" ? xAxisObj["showBackground"] : true;
+        
+        // MODIFIER LA RÉCUPÉRATION DU PARAMÈTRE
+        let showBackground = true;
+        // Vérifier d'abord via formattingSettings (nouvelle carte layoutCard)
+        if (this.formattingSettings && this.formattingSettings.layoutCard && this.formattingSettings.layoutCard.showBackground) {
+            showBackground = this.formattingSettings.layoutCard.showBackground.value;
+        } 
+        // Fallback sur objects (pour compatibilité ou si formattingSettings échoue)
+        else if (objects && objects["layout"] && typeof (objects["layout"] as any)["showBackground"] === "boolean") {
+            showBackground = (objects["layout"] as any)["showBackground"];
+        }
 
         // Calculer barWidth et espacement (une seule déclaration)
         let barWidth = Math.min(60, Math.max(10, Math.floor(width / Math.max(1, sortedCategories.length) * 0.6)));

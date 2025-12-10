@@ -158,7 +158,16 @@ class Visual {
         const xAxisFontFamily = typeof xAxisObj["fontFamily"] === "string" ? xAxisObj["fontFamily"] : "Segoe UI";
         const xAxisFontColor = readColor(xAxisObj["fontColor"]) || "#888";
         const bottomMargin = typeof xAxisObj["bottomMargin"] === "number" ? Math.max(40, xAxisObj["bottomMargin"]) : 80;
-        const showBackground = typeof xAxisObj["showBackground"] === "boolean" ? xAxisObj["showBackground"] : true;
+        // MODIFIER LA RÉCUPÉRATION DU PARAMÈTRE
+        let showBackground = true;
+        // Vérifier d'abord via formattingSettings (nouvelle carte layoutCard)
+        if (this.formattingSettings && this.formattingSettings.layoutCard && this.formattingSettings.layoutCard.showBackground) {
+            showBackground = this.formattingSettings.layoutCard.showBackground.value;
+        }
+        // Fallback sur objects (pour compatibilité ou si formattingSettings échoue)
+        else if (objects && objects["layout"] && typeof objects["layout"]["showBackground"] === "boolean") {
+            showBackground = objects["layout"]["showBackground"];
+        }
         // Calculer barWidth et espacement (une seule déclaration)
         let barWidth = Math.min(60, Math.max(10, Math.floor(width / Math.max(1, sortedCategories.length) * 0.6)));
         if (objects && objects["dataPoint"] && typeof objects["dataPoint"]["barWidth"] === "number") {
@@ -604,7 +613,22 @@ class DataPointCardSettings extends FormattingSettingsCard {
     ];
 }
 /**
- * X Axis Formatting Card (Dropdown for font family)
+ * Layout Formatting Card
+ */
+class LayoutCardSettings extends FormattingSettingsCard {
+    showBackground = new powerbi_visuals_utils_formattingmodel__WEBPACK_IMPORTED_MODULE_0__/* .formattingSettings.ToggleSwitch */ .z.jF({
+        name: "showBackground",
+        displayName: "Afficher fond par défaut",
+        value: true
+    });
+    name = "layout";
+    displayName = "Mise en page";
+    slices = [
+        this.showBackground
+    ];
+}
+/**
+ * X Axis Formatting Card
  */
 class XAxisCardSettings extends FormattingSettingsCard {
     show = new powerbi_visuals_utils_formattingmodel__WEBPACK_IMPORTED_MODULE_0__/* .formattingSettings.ToggleSwitch */ .z.jF({
@@ -654,11 +678,6 @@ class XAxisCardSettings extends FormattingSettingsCard {
             }
         }
     });
-    showBackground = new powerbi_visuals_utils_formattingmodel__WEBPACK_IMPORTED_MODULE_0__/* .formattingSettings.ToggleSwitch */ .z.jF({
-        name: "showBackground",
-        displayName: "Show default background",
-        value: true
-    });
     name = "xAxis";
     displayName = "X axis";
     slices = [
@@ -668,8 +687,7 @@ class XAxisCardSettings extends FormattingSettingsCard {
         this.fontSize,
         this.fontFamily,
         this.fontColor,
-        this.bottomMargin,
-        this.showBackground
+        this.bottomMargin
     ];
 }
 /**
@@ -678,7 +696,8 @@ class XAxisCardSettings extends FormattingSettingsCard {
 class VisualFormattingSettingsModel extends FormattingSettingsModel {
     dataPointCard = new DataPointCardSettings();
     xAxisCard = new XAxisCardSettings();
-    cards = [this.dataPointCard, this.xAxisCard];
+    layoutCard = new LayoutCardSettings(); // AJOUTER CECI
+    cards = [this.dataPointCard, this.xAxisCard, this.layoutCard]; // AJOUTER CECI
 }
 
 

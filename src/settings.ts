@@ -109,7 +109,24 @@ class DataPointCardSettings extends FormattingSettingsCard {
 }
 
 /**
- * X Axis Formatting Card (Dropdown for font family)
+ * Layout Formatting Card
+ */
+class LayoutCardSettings extends FormattingSettingsCard {
+    showBackground = new formattingSettings.ToggleSwitch({
+        name: "showBackground",
+        displayName: "Afficher fond par défaut",
+        value: true
+    });
+
+    name: string = "layout";
+    displayName: string = "Mise en page";
+    slices: Array<FormattingSettingsSlice> = [
+        this.showBackground
+    ];
+}
+
+/**
+ * X Axis Formatting Card
  */
 class XAxisCardSettings extends FormattingSettingsCard {
     show = new formattingSettings.ToggleSwitch({
@@ -166,12 +183,6 @@ class XAxisCardSettings extends FormattingSettingsCard {
         }
     });
 
-    showBackground = new formattingSettings.ToggleSwitch({
-        name: "showBackground",
-        displayName: "Show default background",
-        value: true
-    });
-
     name: string = "xAxis";
     displayName: string = "X axis";
     slices: Array<FormattingSettingsSlice> = [
@@ -181,8 +192,7 @@ class XAxisCardSettings extends FormattingSettingsCard {
         this.fontSize,
         this.fontFamily,
         this.fontColor,
-        this.bottomMargin,
-        this.showBackground
+        this.bottomMargin
     ];
 }
 
@@ -192,6 +202,7 @@ class XAxisCardSettings extends FormattingSettingsCard {
 export class VisualFormattingSettingsModel extends FormattingSettingsModel {
     dataPointCard = new DataPointCardSettings();
     xAxisCard = new XAxisCardSettings();
+    layoutCard = new LayoutCardSettings(); // AJOUTER CECI
 
-    cards = [this.dataPointCard, this.xAxisCard];
+    cards = [this.dataPointCard, this.xAxisCard, this.layoutCard]; // AJOUTER CECI
 }

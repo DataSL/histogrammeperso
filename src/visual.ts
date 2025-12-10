@@ -163,6 +163,7 @@ export class Visual implements IVisual {
         const xAxisFontFamily: string = typeof xAxisObj["fontFamily"] === "string" ? xAxisObj["fontFamily"] : "Segoe UI";
         const xAxisFontColor: string = readColor(xAxisObj["fontColor"]) || "#888";
         const bottomMargin: number = typeof xAxisObj["bottomMargin"] === "number" ? Math.max(40, xAxisObj["bottomMargin"]) : 80;
+        const showBackground: boolean = typeof xAxisObj["showBackground"] === "boolean" ? xAxisObj["showBackground"] : true;
 
         // Calculer barWidth et espacement (une seule déclaration)
         let barWidth = Math.min(60, Math.max(10, Math.floor(width / Math.max(1, sortedCategories.length) * 0.6)));
@@ -195,6 +196,13 @@ export class Visual implements IVisual {
 
         this.svg.setAttribute("width", svgWidth.toString());
         this.svg.setAttribute("height", svgHeight.toString());
+
+        // Appliquer ou retirer l'arrière-plan dynamiquement
+        if (showBackground) {
+            this.svg.style.background = "#f7fbff";
+        } else {
+            this.svg.style.background = "transparent";
+        }
 
         // DETECTION MODE "NARROW" (peut ajuster seuil)
         const slotWidth = barWidth + barSpacing;
@@ -305,7 +313,7 @@ export class Visual implements IVisual {
             barNon.setAttribute("fill", colorNon);
             barGroup.appendChild(barNon);
 
-            if (percentValue < 19.9 && visibleHeight > 0) {
+            if (percentValue < 35 && visibleHeight > 0) {
                 // clip + fill so fill respects rounded background shape
                 const clipId = `clip-bar-${i}-${Date.now()}`;
                 const clipPath = document.createElementNS("http://www.w3.org/2000/svg", "clipPath");

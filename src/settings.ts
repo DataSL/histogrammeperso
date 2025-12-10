@@ -28,6 +28,7 @@
 "use strict";
 
 import { formattingSettings } from "powerbi-visuals-utils-formattingmodel";
+import powerbi from "powerbi-visuals-api"; // Import nécessaire pour ValidatorType
 
 import FormattingSettingsCard = formattingSettings.SimpleCard;
 import FormattingSettingsSlice = formattingSettings.Slice;
@@ -165,6 +166,12 @@ class XAxisCardSettings extends FormattingSettingsCard {
         }
     });
 
+    showBackground = new formattingSettings.ToggleSwitch({
+        name: "showBackground",
+        displayName: "Show default background",
+        value: true
+    });
+
     name: string = "xAxis";
     displayName: string = "X axis";
     slices: Array<FormattingSettingsSlice> = [
@@ -174,7 +181,8 @@ class XAxisCardSettings extends FormattingSettingsCard {
         this.fontSize,
         this.fontFamily,
         this.fontColor,
-        this.bottomMargin
+        this.bottomMargin,
+        this.showBackground
     ];
 }
 

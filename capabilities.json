@@ -25,7 +25,8 @@
                 "fontSize": { "displayName": "X axis font size", "type": { "numeric": true } },
                 "fontFamily": { "displayName": "X axis font family", "type": { "text": true } },
                 "fontColor": { "displayName": "X axis font color", "type": { "fill": { "solid": { "color": true } } } },
-                "bottomMargin": { "displayName": "Bottom margin (spacing for X axis)", "type": { "numeric": true } }
+                "bottomMargin": { "displayName": "Bottom margin (spacing for X axis)", "type": { "numeric": true } },
+                "showBackground": { "displayName": "Show default background", "type": { "bool": true } }
             }
         }
     },

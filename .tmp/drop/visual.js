@@ -3,6 +3,13 @@ var histogrammeperso617D19C842BC4DB48BE9AA56788C1821_DEBUG;
 /******/ 	"use strict";
 /******/ 	var __webpack_modules__ = ({
 
+/***/ 210:
+/***/ ((module) => {
+
+module.exports = null;
+
+/***/ }),
+
 /***/ 370:
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
@@ -151,6 +158,7 @@ class Visual {
         const xAxisFontFamily = typeof xAxisObj["fontFamily"] === "string" ? xAxisObj["fontFamily"] : "Segoe UI";
         const xAxisFontColor = readColor(xAxisObj["fontColor"]) || "#888";
         const bottomMargin = typeof xAxisObj["bottomMargin"] === "number" ? Math.max(40, xAxisObj["bottomMargin"]) : 80;
+        const showBackground = typeof xAxisObj["showBackground"] === "boolean" ? xAxisObj["showBackground"] : true;
         // Calculer barWidth et espacement (une seule déclaration)
         let barWidth = Math.min(60, Math.max(10, Math.floor(width / Math.max(1, sortedCategories.length) * 0.6)));
         if (objects && objects["dataPoint"] && typeof objects["dataPoint"]["barWidth"] === "number") {
@@ -180,6 +188,13 @@ class Visual {
         const svgHeight = Math.max(height, Math.ceil(maxBarHeight + bottomMargin + 60));
         this.svg.setAttribute("width", svgWidth.toString());
         this.svg.setAttribute("height", svgHeight.toString());
+        // Appliquer ou retirer l'arrière-plan dynamiquement
+        if (showBackground) {
+            this.svg.style.background = "#f7fbff";
+        }
+        else {
+            this.svg.style.background = "transparent";
+        }
         // DETECTION MODE "NARROW" (peut ajuster seuil)
         const slotWidth = barWidth + barSpacing;
         const narrowMode = slotWidth < 70 || width < 480 || svgWidth > width;
@@ -275,7 +290,7 @@ class Visual {
             barNon.setAttribute("rx", effectiveRx.toString());
             barNon.setAttribute("fill", colorNon);
             barGroup.appendChild(barNon);
-            if (percentValue < 19.9 && visibleHeight > 0) {
+            if (percentValue < 35 && visibleHeight > 0) {
                 // clip + fill so fill respects rounded background shape
                 const clipId = `clip-bar-${i}-${Date.now()}`;
                 const clipPath = document.createElementNS("http://www.w3.org/2000/svg", "clipPath");
@@ -491,6 +506,8 @@ function lightenColor(hex, percent, alpha = 0.5) {
 /* harmony export */   S: () => (/* binding */ VisualFormattingSettingsModel)
 /* harmony export */ });
 /* harmony import */ var powerbi_visuals_utils_formattingmodel__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(674);
+/* harmony import */ var powerbi_visuals_api__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(210);
+/* harmony import */ var powerbi_visuals_api__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__webpack_require__.n(powerbi_visuals_api__WEBPACK_IMPORTED_MODULE_1__);
 /*
  *  Power BI Visualizations
  *
@@ -519,6 +536,7 @@ function lightenColor(hex, percent, alpha = 0.5) {
  */
 
 
+ // Import nécessaire pour ValidatorType
 var FormattingSettingsCard = powerbi_visuals_utils_formattingmodel__WEBPACK_IMPORTED_MODULE_0__/* .formattingSettings.SimpleCard */ .z.Tn;
 var FormattingSettingsModel = powerbi_visuals_utils_formattingmodel__WEBPACK_IMPORTED_MODULE_0__/* .formattingSettings.Model */ .z.Kx;
 /**
@@ -636,6 +654,11 @@ class XAxisCardSettings extends FormattingSettingsCard {
             }
         }
     });
+    showBackground = new powerbi_visuals_utils_formattingmodel__WEBPACK_IMPORTED_MODULE_0__/* .formattingSettings.ToggleSwitch */ .z.jF({
+        name: "showBackground",
+        displayName: "Show default background",
+        value: true
+    });
     name = "xAxis";
     displayName = "X axis";
     slices = [
@@ -645,7 +668,8 @@ class XAxisCardSettings extends FormattingSettingsCard {
         this.fontSize,
         this.fontFamily,
         this.fontColor,
-        this.bottomMargin
+        this.bottomMargin,
+        this.showBackground
     ];
 }
 /**
@@ -1279,6 +1303,18 @@ class ContainerItem extends (/* unused pure expression or super */ null && (Name
 /******/ 	}
 /******/ 	
 /************************************************************************/
+/******/ 	/* webpack/runtime/compat get default export */
+/******/ 	(() => {
+/******/ 		// getDefaultExport function for compatibility with non-harmony modules
+/******/ 		__webpack_require__.n = (module) => {
+/******/ 			var getter = module && module.__esModule ?
+/******/ 				() => (module['default']) :
+/******/ 				() => (module);
+/******/ 			__webpack_require__.d(getter, { a: getter });
+/******/ 			return getter;
+/******/ 		};
+/******/ 	})();
+/******/ 	
 /******/ 	/* webpack/runtime/define property getters */
 /******/ 	(() => {
 /******/ 		// define getter functions for harmony exports

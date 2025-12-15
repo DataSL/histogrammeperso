@@ -46,5 +46,10 @@
             }
         }
     ],
-    "privileges": []
+    "privileges": [
+        {
+            "name": "ExportContent",
+            "essential": true
+        }
+    ]
 }

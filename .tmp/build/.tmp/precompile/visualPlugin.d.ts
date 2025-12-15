@@ -1,4 +1,4 @@
 import powerbiVisualsApi from "powerbi-visuals-api";
 import IVisualPlugin = powerbiVisualsApi.visuals.plugins.IVisualPlugin;
-declare var histogrammeperso617D19C842BC4DB48BE9AA56788C1821: IVisualPlugin;
-export default histogrammeperso617D19C842BC4DB48BE9AA56788C1821;
+declare var histogrammeperso617D19C842BC4DB48BE9AA56788C1821_DEBUG: IVisualPlugin;
+export default histogrammeperso617D19C842BC4DB48BE9AA56788C1821_DEBUG;

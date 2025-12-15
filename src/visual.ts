@@ -313,6 +313,15 @@ export class Visual implements IVisual {
             barGroup.style.cursor = "pointer";
             barGroup.setAttribute("data-index", i.toString());
 
+            // Gestion du menu contextuel (clic droit)
+            barGroup.addEventListener("contextmenu", (event: MouseEvent) => {
+                event.preventDefault();
+                this.selectionManager.showContextMenu(selectionIds[i], {
+                    x: event.clientX,
+                    y: event.clientY
+                });
+            });
+
             // background rounded rect
             const barNon = document.createElementNS("http://www.w3.org/2000/svg", "rect");
             barNon.setAttribute("x", x.toString());

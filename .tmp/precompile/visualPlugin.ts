@@ -5,8 +5,8 @@ import VisualConstructorOptions = powerbiVisualsApi.extensibility.visual.VisualC
 import DialogConstructorOptions = powerbiVisualsApi.extensibility.visual.DialogConstructorOptions;
 var powerbiKey: any = "powerbi";
 var powerbi: any = window[powerbiKey];
-var histogrammeperso617D19C842BC4DB48BE9AA56788C1821_DEBUG: IVisualPlugin = {
-    name: 'histogrammeperso617D19C842BC4DB48BE9AA56788C1821_DEBUG',
+var histogrammeperso617D19C842BC4DB48BE9AA56788C1821: IVisualPlugin = {
+    name: 'histogrammeperso617D19C842BC4DB48BE9AA56788C1821',
     displayName: 'histogrammeperso',
     class: 'Visual',
     apiVersion: '5.3.0',
@@ -27,6 +27,6 @@ var histogrammeperso617D19C842BC4DB48BE9AA56788C1821_DEBUG: IVisualPlugin = {
 if (typeof powerbi !== "undefined") {
     powerbi.visuals = powerbi.visuals || {};
     powerbi.visuals.plugins = powerbi.visuals.plugins || {};
-    powerbi.visuals.plugins["histogrammeperso617D19C842BC4DB48BE9AA56788C1821_DEBUG"] = histogrammeperso617D19C842BC4DB48BE9AA56788C1821_DEBUG;
+    powerbi.visuals.plugins["histogrammeperso617D19C842BC4DB48BE9AA56788C1821"] = histogrammeperso617D19C842BC4DB48BE9AA56788C1821;
 }
-export default histogrammeperso617D19C842BC4DB48BE9AA56788C1821_DEBUG;
+export default histogrammeperso617D19C842BC4DB48BE9AA56788C1821;

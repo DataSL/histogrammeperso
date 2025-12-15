@@ -11,8 +11,15 @@ export declare class Visual implements IVisual {
     private container;
     private selectionManager;
     private host;
+    private licenseManager;
+    private currentUserValidPlans;
+    private hasServicePlans;
+    private isLicenseUnsupportedEnv;
+    private isNotificationDisplayed;
     private dataPoints;
     constructor(options: VisualConstructorOptions);
+    private checkLicense;
+    private notifyLicenseRequired;
     update(options: VisualUpdateOptions): void;
     private updateSelection;
     getFormattingModel(): powerbi.visuals.FormattingModel;

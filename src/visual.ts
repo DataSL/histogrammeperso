@@ -44,13 +44,22 @@ export class Visual implements IVisual {
     private container: HTMLElement;
     private selectionManager: ISelectionManager;
     private host: powerbi.extensibility.visual.IVisualHost;
+    private licenseManager: powerbi.extensibility.IVisualLicenseManager;
+    private currentUserValidPlans: powerbi.extensibility.visual.ServicePlan[] | undefined;
+    private hasServicePlans: boolean | undefined;
+    private isLicenseUnsupportedEnv: boolean | undefined;
+    private isNotificationDisplayed: boolean = false;
     private dataPoints: Array<{ category: string; value: number; selectionId: ISelectionId }>;
 
     constructor(options: VisualConstructorOptions) {
         this.formattingSettingsService = new FormattingSettingsService();
         this.target = options.element;
         this.host = options.host;
+        this.licenseManager = this.host.licenseManager;
         this.selectionManager = this.host.createSelectionManager();
+        
+        // Init license check
+        this.checkLicense();
 
         // Container scrollable pour le SVG
         this.container = document.createElement('div');
@@ -67,6 +76,48 @@ export class Visual implements IVisual {
         this.container.appendChild(this.svg);
 
         this.dataPoints = [];
+    }
+
+    private checkLicense() {
+        if (!this.licenseManager) {
+             return;
+        }
+
+        this.licenseManager.getAvailableServicePlans()
+            .then((result: powerbi.extensibility.visual.LicenseInfoResult) => {
+                this.isLicenseUnsupportedEnv = result.isLicenseUnsupportedEnv;
+                
+                if (result.isLicenseInfoAvailable && !this.isLicenseUnsupportedEnv) {
+                    this.currentUserValidPlans = result.plans?.filter((plan: powerbi.extensibility.visual.ServicePlan) => 
+                        (plan.state === powerbi.ServicePlanState.Active || plan.state === powerbi.ServicePlanState.Warning)
+                    );
+                    this.hasServicePlans = !!this.currentUserValidPlans?.length;
+                }
+
+                // If no valid plans found, notify user
+                if (!this.hasServicePlans && !this.isLicenseUnsupportedEnv) {
+                     this.notifyLicenseRequired();
+                }
+            })
+            .catch((err) => {
+                console.error("Error fetching licenses:", err);
+            });
+    }
+
+    private notifyLicenseRequired() {
+        if (this.isNotificationDisplayed) return;
+
+        const notificationType = this.isLicenseUnsupportedEnv 
+            ? powerbi.LicenseNotificationType.UnsupportedEnv 
+            : powerbi.LicenseNotificationType.VisualIsBlocked;
+
+        this.licenseManager.notifyLicenseRequired(notificationType)
+            .then((value) => {
+                this.isNotificationDisplayed = value;
+            })
+            .catch((err) => {
+                console.error("Error notifying license:", err);
+            });
     }
 
     public update(options: VisualUpdateOptions) {

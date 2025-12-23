@@ -276,6 +276,31 @@ class Visual {
         // DETECTION MODE "NARROW" (peut ajuster seuil)
         const slotWidth = barWidth + barSpacing;
         const narrowMode = slotWidth < 70 || width < 480 || svgWidth > width;
+        // Ajout d'un rectangle de fond cliquable pour la désélection (placé en premier plan)
+        const bgRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        bgRect.setAttribute("x", "0");
+        bgRect.setAttribute("y", "0");
+        bgRect.setAttribute("width", svgWidth.toString());
+        bgRect.setAttribute("height", svgHeight.toString());
+        bgRect.setAttribute("fill", showBackground ? "#f7fbff" : "transparent");
+        bgRect.style.cursor = "pointer";
+        bgRect.addEventListener("click", (event) => {
+            event.stopPropagation();
+            this.selectionManager.clear().then(() => {
+                // @ts-ignore
+                this.updateSelection([], barGroups);
+                // Déclencher un événement click sur le SVG pour activer la sélection du visuel (comme le titre)
+                const clickEvent = new MouseEvent("click", { bubbles: true, cancelable: true, view: window });
+                this.svg.dispatchEvent(clickEvent);
+            });
+        });
+        // Insérer le rectangle en tout premier dans le SVG (derrière tout)
+        if (this.svg.firstChild) {
+            this.svg.insertBefore(bgRect, this.svg.firstChild);
+        }
+        else {
+            this.svg.appendChild(bgRect);
+        }
         // Titre (modifiable et stylable)
         const title = document.createElementNS("http://www.w3.org/2000/svg", "text");
         title.setAttribute("x", "10");
@@ -524,13 +549,7 @@ class Visual {
             axisTitle.textContent = xAxisTitle;
             this.svg.appendChild(axisTitle);
         }
-        // clic sur fond pour désélectionner
-        this.svg.onclick = (event) => {
-            event.stopPropagation();
-            this.selectionManager.clear().then(() => {
-                this.updateSelection([], barGroups);
-            });
-        };
+        // (Le clic de fond est maintenant géré par le rectangle bgRect)
     }
     updateSelection(selectedIds, barGroups) {
         // Mettre à jour l'opacité des barres selon la sélection

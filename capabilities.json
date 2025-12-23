@@ -31,7 +31,12 @@
         "layout": {
             "displayName": "Mise en page",
             "properties": {
-                "showBackground": { "displayName": "Afficher fond par défaut", "type": { "bool": true } }
+                "showBackground": { "displayName": "Afficher fond par défaut", "type": { "bool": true } },
+                "titleText": { "displayName": "Titre du graphique (DSP)", "type": { "text": true } },
+                "titleFontFamily": { "displayName": "Police du titre", "type": { "text": true } },
+                "titleFontSize": { "displayName": "Taille du titre (px)", "type": { "numeric": true } },
+                "titleFontBold": { "displayName": "Titre en gras", "type": { "bool": true } },
+                "titleFontColor": { "displayName": "Couleur du titre", "type": { "fill": { "solid": { "color": true } } } }
             }
         }
     },

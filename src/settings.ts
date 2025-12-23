@@ -112,16 +112,55 @@ class DataPointCardSettings extends FormattingSettingsCard {
  * Layout Formatting Card
  */
 class LayoutCardSettings extends FormattingSettingsCard {
+
     showBackground = new formattingSettings.ToggleSwitch({
         name: "showBackground",
         displayName: "Afficher fond par défaut",
         value: true
     });
 
+
+    titleText = new formattingSettings.TextInput({
+        name: "titleText",
+        displayName: "Titre du graphique (DSP)",
+        value: "DSP",
+        placeholder: "Titre du graphique"
+    });
+
+    titleFontFamily = new formattingSettings.TextInput({
+        name: "titleFontFamily",
+        displayName: "Police du titre",
+        value: "Segoe UI",
+        placeholder: "e.g. Segoe UI, Arial"
+    });
+
+    titleFontSize = new formattingSettings.NumUpDown({
+        name: "titleFontSize",
+        displayName: "Taille du titre (px)",
+        value: 20
+    });
+
+    titleFontBold = new formattingSettings.ToggleSwitch({
+        name: "titleFontBold",
+        displayName: "Titre en gras",
+        value: true
+    });
+
+    titleFontColor = new formattingSettings.ColorPicker({
+        name: "titleFontColor",
+        displayName: "Couleur du titre",
+        value: { value: "#222222" }
+    });
+
     name: string = "layout";
     displayName: string = "Mise en page";
     slices: Array<FormattingSettingsSlice> = [
-        this.showBackground
+        this.showBackground,
+        this.titleText,
+        this.titleFontFamily,
+        this.titleFontSize,
+        this.titleFontBold,
+        this.titleFontColor
     ];
 }
 

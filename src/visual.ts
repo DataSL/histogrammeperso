@@ -59,7 +59,7 @@ export class Visual implements IVisual {
         this.selectionManager = this.host.createSelectionManager();
         
         // Init license check
-        this.checkLicense();
+        //this.checkLicense();
 
         // Container scrollable pour le SVG
         this.container = document.createElement('div');
@@ -217,13 +217,40 @@ export class Visual implements IVisual {
         
         // MODIFIER LA RÉCUPÉRATION DU PARAMÈTRE
         let showBackground = true;
+        let titleText = "DSP";
+        let titleFontFamily = "Segoe UI";
+        let titleFontSize = 20;
+        let titleFontBold = true;
+        let titleFontColor = "#222";
         // Vérifier d'abord via formattingSettings (nouvelle carte layoutCard)
-        if (this.formattingSettings && this.formattingSettings.layoutCard && this.formattingSettings.layoutCard.showBackground) {
-            showBackground = this.formattingSettings.layoutCard.showBackground.value;
-        } 
+        if (this.formattingSettings && this.formattingSettings.layoutCard) {
+            if (this.formattingSettings.layoutCard.showBackground)
+                showBackground = this.formattingSettings.layoutCard.showBackground.value;
+            if (this.formattingSettings.layoutCard.titleText && typeof this.formattingSettings.layoutCard.titleText.value === "string")
+                titleText = this.formattingSettings.layoutCard.titleText.value || "DSP";
+            if (this.formattingSettings.layoutCard.titleFontFamily && typeof this.formattingSettings.layoutCard.titleFontFamily.value === "string")
+                titleFontFamily = this.formattingSettings.layoutCard.titleFontFamily.value || "Segoe UI";
+            if (this.formattingSettings.layoutCard.titleFontSize && typeof this.formattingSettings.layoutCard.titleFontSize.value === "number")
+                titleFontSize = this.formattingSettings.layoutCard.titleFontSize.value || 20;
+            if (this.formattingSettings.layoutCard.titleFontBold && typeof this.formattingSettings.layoutCard.titleFontBold.value === "boolean")
+                titleFontBold = this.formattingSettings.layoutCard.titleFontBold.value;
+            if (this.formattingSettings.layoutCard.titleFontColor)
+                titleFontColor = readColor(this.formattingSettings.layoutCard.titleFontColor.value) || "#222";
+        }
         // Fallback sur objects (pour compatibilité ou si formattingSettings échoue)
-        else if (objects && objects["layout"] && typeof (objects["layout"] as any)["showBackground"] === "boolean") {
-            showBackground = (objects["layout"] as any)["showBackground"];
+        else if (objects && objects["layout"]) {
+            if (typeof (objects["layout"] as any)["showBackground"] === "boolean")
+                showBackground = (objects["layout"] as any)["showBackground"];
+            if (typeof (objects["layout"] as any)["titleText"] === "string")
+                titleText = (objects["layout"] as any)["titleText"] || "DSP";
+            if (typeof (objects["layout"] as any)["titleFontFamily"] === "string")
+                titleFontFamily = (objects["layout"] as any)["titleFontFamily"] || "Segoe UI";
+            if (typeof (objects["layout"] as any)["titleFontSize"] === "number")
+                titleFontSize = (objects["layout"] as any)["titleFontSize"] || 20;
+            if (typeof (objects["layout"] as any)["titleFontBold"] === "boolean")
+                titleFontBold = (objects["layout"] as any)["titleFontBold"];
+            if ((objects["layout"] as any)["titleFontColor"])
+                titleFontColor = readColor((objects["layout"] as any)["titleFontColor"]) || "#222";
         }
 
         // Calculer barWidth et espacement (une seule déclaration)
@@ -269,14 +296,15 @@ export class Visual implements IVisual {
         const slotWidth = barWidth + barSpacing;
         const narrowMode = slotWidth < 70 || width < 480 || svgWidth > width;
 
-        // Titre
+        // Titre (modifiable et stylable)
         const title = document.createElementNS("http://www.w3.org/2000/svg", "text");
         title.setAttribute("x", "10");
         title.setAttribute("y", "20");
-        title.setAttribute("font-size", "20");
-        title.setAttribute("font-weight", "bold");
-        title.setAttribute("fill", "#222");
-        title.textContent = "DSP";
+        title.setAttribute("font-size", titleFontSize.toString());
+        title.setAttribute("font-family", titleFontFamily);
+        title.setAttribute("font-weight", titleFontBold ? "bold" : "normal");
+        title.setAttribute("fill", titleFontColor);
+        title.textContent = titleText;
         this.svg.appendChild(title);
 
         // Légende — si narrowMode on la masque (ne pas passer en verticale)

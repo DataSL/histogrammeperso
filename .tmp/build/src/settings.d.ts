@@ -24,6 +24,11 @@ declare class DataPointCardSettings extends FormattingSettingsCard {
  */
 declare class LayoutCardSettings extends FormattingSettingsCard {
     showBackground: formattingSettings.ToggleSwitch;
+    titleText: formattingSettings.TextInput;
+    titleFontFamily: formattingSettings.TextInput;
+    titleFontSize: formattingSettings.NumUpDown;
+    titleFontBold: formattingSettings.ToggleSwitch;
+    titleFontColor: formattingSettings.ColorPicker;
     name: string;
     displayName: string;
     slices: Array<FormattingSettingsSlice>;

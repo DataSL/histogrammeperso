@@ -131,7 +131,7 @@ export class Visual implements IVisual {
         this.events = options.host.eventService;
         
         // Init license check
-        //this.checkLicense();
+        this.checkLicense();
 
         // Container scrollable pour le SVG
         this.container = document.createElement('div');

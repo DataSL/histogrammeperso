@@ -26,6 +26,13 @@
 */
 "use strict";
 
+// eslint-disable-next-line powerbi-visuals/no-http-string
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+function createSvgElement<K extends keyof SVGElementTagNameMap>(tagName: K): SVGElementTagNameMap[K] {
+    return document.createElementNS(SVG_NS, tagName) as SVGElementTagNameMap[K];
+}
+
 import powerbi from "powerbi-visuals-api";
 import { FormattingSettingsService } from "powerbi-visuals-utils-formattingmodel";
 import "./../style/visual.less";
@@ -34,7 +41,70 @@ import VisualUpdateOptions = powerbi.extensibility.visual.VisualUpdateOptions;
 import IVisual = powerbi.extensibility.visual.IVisual;
 import ISelectionManager = powerbi.extensibility.ISelectionManager;
 import ISelectionId = powerbi.visuals.ISelectionId;
+import IVisualEventService = powerbi.extensibility.IVisualEventService;
 import { VisualFormattingSettingsModel } from "./settings";
+
+interface DataPointOptions {
+    fillColor: string;
+    colorNon: string;
+    barRadius: number;
+    fontSize: number;
+    barValueFontSize: number;
+    barValueFontFamily: string;
+    barValueFontColor: string;
+    valueDisplayMode: number;
+    decimalPlaces: number;
+    barWidth: number;
+    barSpacing: number;
+}
+
+interface XAxisOptions {
+    showXAxis: boolean;
+    xAxisTitle: string;
+    labelRotation: number;
+    xAxisFontSize: number;
+    xAxisFontFamily: string;
+    xAxisFontColor: string;
+    bottomMargin: number;
+}
+
+interface LayoutOptions {
+    showBackground: boolean;
+    titleText: string;
+    titleFontFamily: string;
+    titleFontSize: number;
+    titleFontBold: boolean;
+    titleFontColor: string;
+}
+
+interface BarRenderContext {
+    cat: string;
+    index: number;
+    rawValue: number;
+    x: number;
+    barWidth: number;
+    barSpacing: number;
+    baseY: number;
+    maxBarHeight: number;
+    barRadius: number;
+    fontSize: number;
+    fillColor: string;
+    colorNon: string;
+    barValueFontSize: number;
+    barValueFontFamily: string;
+    barValueFontColor: string;
+    narrowMode: boolean;
+    showXAxis: boolean;
+    xAxisFontSize: number;
+    xAxisFontFamily: string;
+    xAxisFontColor: string;
+    labelRotation: number;
+    needsRotation: boolean;
+    availableSpaceForLabel: number;
+    formatBarValue: (raw: number) => string;
+    defs: SVGDefsElement;
+    selectionId: ISelectionId;
+}
 
 export class Visual implements IVisual {
     private target: HTMLElement;
@@ -50,6 +120,7 @@ export class Visual implements IVisual {
     private isLicenseUnsupportedEnv: boolean | undefined;
     private isNotificationDisplayed: boolean = false;
     private dataPoints: Array<{ category: string; value: number; selectionId: ISelectionId }>;
+    private events: IVisualEventService;
 
     constructor(options: VisualConstructorOptions) {
         this.formattingSettingsService = new FormattingSettingsService();
@@ -57,6 +128,7 @@ export class Visual implements IVisual {
         this.host = options.host;
         this.licenseManager = this.host.licenseManager;
         this.selectionManager = this.host.createSelectionManager();
+        this.events = options.host.eventService;
         
         // Init license check
         //this.checkLicense();
@@ -69,7 +141,7 @@ export class Visual implements IVisual {
         this.container.style.position = "relative";
         this.target.appendChild(this.container);
 
-        this.svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        this.svg = createSvgElement("svg");
         this.svg.setAttribute("width", "100%");
         this.svg.setAttribute("height", "100%");
         this.svg.style.display = "block"; // évite gaps dans certains navigateurs
@@ -121,6 +193,7 @@ export class Visual implements IVisual {
     }
 
     public update(options: VisualUpdateOptions) {
+        this.events.renderingStarted(options);
         this.formattingSettings = this.formattingSettingsService.populateFormattingSettingsModel(VisualFormattingSettingsModel, options.dataViews && options.dataViews[0]);
 
         // clear svg
@@ -135,143 +208,37 @@ export class Visual implements IVisual {
 
         // Récupération des données
         const dataView = options.dataViews && options.dataViews[0];
-        if (!dataView || !dataView.categorical) return;
+        if (!dataView || !dataView.categorical) {
+            this.events.renderingFinished(options);
+            return;
+        }
 
         const categories = dataView.categorical.categories[0];
         const categoryValues = categories.values as (string | number)[];
         const values = dataView.categorical.values[0].values as number[];
 
-        // Création des ISelectionId pour chaque catégorie - stocker dans this.dataPoints
-        this.dataPoints = categoryValues.map((cat, i) => ({
-            category: cat.toString(), // Convertir en string pour supporter tous types
-            value: values[i],
-            selectionId: this.host.createSelectionIdBuilder()
-                .withCategory(categories, i)
-                .createSelectionId()
-        }));
-
-        // Détecter si toutes les catégories sont des années (nombres à 4 chiffres)
-        const areYears = this.dataPoints.every(dp => {
-            const num = parseInt(dp.category);
-            return !isNaN(num) && num >= 1900 && num <= 2100 && dp.category.length === 4;
-        });
-
-        // Trier par année si détecté, sinon garder l'ordre d'origine
-        if (areYears) {
-            this.dataPoints.sort((a, b) => parseInt(a.category) - parseInt(b.category));
-        }
-
+        this.prepareDataPoints(categories, categoryValues, values);
         const sortedCategories = this.dataPoints.map(d => d.category);
         const sortedValues = this.dataPoints.map(d => d.value);
         const selectionIds = this.dataPoints.map(d => d.selectionId);
 
-        // Récupération des propriétés personnalisables
+        // Récupération des options via helpers
         const objects = dataView.metadata && dataView.metadata.objects;
-        let fillColor = "#2F6FE7";
-        if (objects && objects["dataPoint"] && (objects["dataPoint"] as any)["fill"]) {
-            const colorObj = (objects["dataPoint"] as any)["fill"];
-            if (colorObj.solid && colorObj.solid.color) {
-                fillColor = colorObj.solid.color;
-            }
-        }
-        const colorNon = lightenColor(fillColor, 0.6, 0.5);
+        const dpOpts = this.getDataPointOptions(objects, width, sortedCategories.length);
+        const { fillColor, colorNon, barRadius, fontSize, barValueFontSize, barValueFontFamily, barValueFontColor, valueDisplayMode, decimalPlaces, barWidth, barSpacing } = dpOpts;
 
-        const barRadius = objects && objects["dataPoint"] && typeof (objects["dataPoint"] as any)["barRadius"] === "number"
-            ? (objects["dataPoint"] as any)["barRadius"]
-            : 30;
+        const xOpts = this.getXAxisOptions(objects);
+        const { showXAxis, xAxisTitle, labelRotation, xAxisFontSize, xAxisFontFamily, xAxisFontColor, bottomMargin } = xOpts;
 
-        const fontSize = objects && objects["dataPoint"] && typeof (objects["dataPoint"] as any)["fontSize"] === "number"
-            ? (objects["dataPoint"] as any)["fontSize"]
-            : 18;
+        const layoutOpts = this.getLayoutOptions(objects);
+        const { showBackground, titleText, titleFontFamily, titleFontSize, titleFontBold, titleFontColor } = layoutOpts;
 
-        // valeur / format des barres (nouveauté)
-        const dpObj: any = (objects && objects["dataPoint"]) || {};
-        const valueDisplayMode: number = typeof dpObj["valueDisplayMode"] === "number" ? dpObj["valueDisplayMode"] : 0; // 0=%,1=decimal,2=integer
-        const decimalPlaces: number = typeof dpObj["decimalPlaces"] === "number" ? Math.max(0, dpObj["decimalPlaces"]) : 2;
+        const formatBarValue = (raw: number) => {
+            if (valueDisplayMode === 0) return (raw * 100).toFixed(decimalPlaces).replace('.', ',') + "%";
+            if (valueDisplayMode === 1) return raw.toFixed(decimalPlaces).replace('.', ',');
+            return Math.round(raw).toString();
+        };
 
-        // police / couleur / taille des valeurs dans les barres
-        const barValueFontSize: number = typeof dpObj["fontSize"] === "number" ? dpObj["fontSize"] : 18;
-        const barValueFontFamily: string = typeof dpObj["fontFamily"] === "string" ? dpObj["fontFamily"] : "Segoe UI";
-        const barValueFontColor: string = readColor(dpObj["fontColor"]) || "#ffffff";
-
-        function formatBarValue(raw: number) {
-            if (valueDisplayMode === 0) {
-                const v = raw * 100;
-                return v.toFixed(decimalPlaces).replace('.', ',') + "%";
-            } else if (valueDisplayMode === 1) {
-                return raw.toFixed(decimalPlaces).replace('.', ',');
-            } else {
-                return Math.round(raw).toString();
-            }
-        }
-
-        // X axis options
-        const xAxisObj: any = (objects && objects["xAxis"]) || {};
-        const showXAxis: boolean = typeof xAxisObj["show"] === "boolean" ? xAxisObj["show"] : true;
-        const xAxisTitle: string = typeof xAxisObj["title"] === "string" ? xAxisObj["title"] : "";
-        const labelRotation: number = typeof xAxisObj["labelRotation"] === "number" ? xAxisObj["labelRotation"] : 0;
-        const xAxisFontSize: number = typeof xAxisObj["fontSize"] === "number" ? xAxisObj["fontSize"] : 14;
-        const xAxisFontFamily: string = typeof xAxisObj["fontFamily"] === "string" ? xAxisObj["fontFamily"] : "Segoe UI";
-        const xAxisFontColor: string = readColor(xAxisObj["fontColor"]) || "#888";
-        const bottomMargin: number = typeof xAxisObj["bottomMargin"] === "number" ? Math.max(40, xAxisObj["bottomMargin"]) : 80;
-        
-        // MODIFIER LA RÉCUPÉRATION DU PARAMÈTRE
-        let showBackground = true;
-        let titleText = "DSP";
-        let titleFontFamily = "Segoe UI";
-        let titleFontSize = 20;
-        let titleFontBold = true;
-        let titleFontColor = "#222";
-        // Vérifier d'abord via formattingSettings (nouvelle carte layoutCard)
-        if (this.formattingSettings && this.formattingSettings.layoutCard) {
-            if (this.formattingSettings.layoutCard.showBackground)
-                showBackground = this.formattingSettings.layoutCard.showBackground.value;
-            if (this.formattingSettings.layoutCard.titleText && typeof this.formattingSettings.layoutCard.titleText.value === "string")
-                titleText = this.formattingSettings.layoutCard.titleText.value || "DSP";
-            if (this.formattingSettings.layoutCard.titleFontFamily && typeof this.formattingSettings.layoutCard.titleFontFamily.value === "string")
-                titleFontFamily = this.formattingSettings.layoutCard.titleFontFamily.value || "Segoe UI";
-            if (this.formattingSettings.layoutCard.titleFontSize && typeof this.formattingSettings.layoutCard.titleFontSize.value === "number")
-                titleFontSize = this.formattingSettings.layoutCard.titleFontSize.value || 20;
-            if (this.formattingSettings.layoutCard.titleFontBold && typeof this.formattingSettings.layoutCard.titleFontBold.value === "boolean")
-                titleFontBold = this.formattingSettings.layoutCard.titleFontBold.value;
-            if (this.formattingSettings.layoutCard.titleFontColor)
-                titleFontColor = readColor(this.formattingSettings.layoutCard.titleFontColor.value) || "#222";
-        }
-        // Fallback sur objects (pour compatibilité ou si formattingSettings échoue)
-        else if (objects && objects["layout"]) {
-            if (typeof (objects["layout"] as any)["showBackground"] === "boolean")
-                showBackground = (objects["layout"] as any)["showBackground"];
-            if (typeof (objects["layout"] as any)["titleText"] === "string")
-                titleText = (objects["layout"] as any)["titleText"] || "DSP";
-            if (typeof (objects["layout"] as any)["titleFontFamily"] === "string")
-                titleFontFamily = (objects["layout"] as any)["titleFontFamily"] || "Segoe UI";
-            if (typeof (objects["layout"] as any)["titleFontSize"] === "number")
-                titleFontSize = (objects["layout"] as any)["titleFontSize"] || 20;
-            if (typeof (objects["layout"] as any)["titleFontBold"] === "boolean")
-                titleFontBold = (objects["layout"] as any)["titleFontBold"];
-            if ((objects["layout"] as any)["titleFontColor"])
-                titleFontColor = readColor((objects["layout"] as any)["titleFontColor"]) || "#222";
-        }
-
-        // Calculer barWidth et espacement (une seule déclaration)
-        let barWidth = Math.min(60, Math.max(10, Math.floor(width / Math.max(1, sortedCategories.length) * 0.6)));
-        if (objects && objects["dataPoint"] && typeof (objects["dataPoint"] as any)["barWidth"] === "number") {
-            barWidth = (objects["dataPoint"] as any)["barWidth"];
-        }
-
-        let barSpacing = Math.round(barWidth * 0.6);
-        try {
-            const fs = this.formattingSettings as any;
-            if (fs && fs.dataPointCard && fs.dataPointCard.barSpacing && typeof fs.dataPointCard.barSpacing.value === "number") {
-                barSpacing = Math.round(fs.dataPointCard.barSpacing.value);
-            } else if (objects && objects["dataPoint"] && typeof (objects["dataPoint"] as any)["barSpacing"] === "number") {
-                barSpacing = (objects["dataPoint"] as any)["barSpacing"];
-            }
-        } catch (e) {
-            // fallback conservateur — laisser barSpacing calculé
-        }
-
-        // bottomMargin reste en pixels
         const baseY = height - bottomMargin;
         const maxBarHeight = Math.floor(baseY * 0.8); // utiliser 80% de l'espace disponible au-dessus de la marge
 
@@ -296,8 +263,145 @@ export class Visual implements IVisual {
         const slotWidth = barWidth + barSpacing;
         const narrowMode = slotWidth < 70 || width < 480 || svgWidth > width;
 
-        // Ajout d'un rectangle de fond cliquable pour la désélection (placé en premier plan)
-        const bgRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        // Dessin des barres (déclaré ici pour être accessible dans le click handler du fond)
+        const barGroups: SVGGElement[] = [];
+
+        // Fond cliquable, titre et légende
+        this.renderBackgroundRect(svgWidth, svgHeight, showBackground, barGroups);
+        this.renderTitle(titleText, titleFontSize, titleFontFamily, titleFontBold, titleFontColor);
+        if (!narrowMode) this.svg.appendChild(this.renderLegend(fillColor, colorNon));
+
+        // defs pour clipPaths (nouveau à chaque update)
+        const defs = createSvgElement("defs");
+        this.svg.appendChild(defs);
+
+        // Déterminer si les labels nécessitent une rotation
+        const needsRotation = this.checkLabelRotation(sortedCategories, barWidth, barSpacing, xAxisFontSize, xAxisFontFamily);
+        const availableSpaceForLabel = bottomMargin - 25;
+
+        sortedCategories.forEach((cat, i) => {
+            const ctx: BarRenderContext = {
+                cat, index: i, rawValue: sortedValues[i] || 0,
+                x: paddingLeft + i * (barWidth + barSpacing),
+                barWidth, barSpacing, baseY, maxBarHeight, barRadius, fontSize,
+                fillColor, colorNon, barValueFontSize, barValueFontFamily, barValueFontColor,
+                narrowMode, showXAxis, xAxisFontSize, xAxisFontFamily, xAxisFontColor,
+                labelRotation, needsRotation, availableSpaceForLabel, formatBarValue, defs,
+                selectionId: selectionIds[i]
+            };
+            const barGroup = this.renderBar(ctx, barGroups, selectionIds);
+            barGroups.push(barGroup);
+            this.svg.appendChild(barGroup);
+        });
+
+        // dessiner le titre de l'axe X si demandé
+        if (showXAxis && xAxisTitle) {
+            this.renderXAxisTitle(xAxisTitle, paddingLeft, sortedCategories.length, barWidth, barSpacing, baseY, xAxisFontSize, xAxisFontColor, xAxisFontFamily);
+        }
+
+        // (Le clic de fond est maintenant géré par le rectangle bgRect)
+        this.events.renderingFinished(options);
+    }
+
+    private getDataPointOptions(objects: powerbi.DataViewObjects | undefined, width: number, categoryCount: number): DataPointOptions {
+        let fillColor = "#2F6FE7";
+        if (objects && objects["dataPoint"] && (objects["dataPoint"] as any)["fill"]) {
+            const colorObj = (objects["dataPoint"] as any)["fill"];
+            if (colorObj.solid && colorObj.solid.color) fillColor = colorObj.solid.color;
+        }
+        const colorNon = lightenColor(fillColor, 0.6, 0.5);
+        const barRadius = objects && objects["dataPoint"] && typeof (objects["dataPoint"] as any)["barRadius"] === "number"
+            ? (objects["dataPoint"] as any)["barRadius"] : 30;
+        const fontSize = objects && objects["dataPoint"] && typeof (objects["dataPoint"] as any)["fontSize"] === "number"
+            ? (objects["dataPoint"] as any)["fontSize"] : 18;
+        const dpObj: any = (objects && objects["dataPoint"]) || {};
+        const valueDisplayMode: number = typeof dpObj["valueDisplayMode"] === "number" ? dpObj["valueDisplayMode"] : 0;
+        const decimalPlaces: number = typeof dpObj["decimalPlaces"] === "number" ? Math.max(0, dpObj["decimalPlaces"]) : 2;
+        const barValueFontSize: number = typeof dpObj["fontSize"] === "number" ? dpObj["fontSize"] : 18;
+        const barValueFontFamily: string = typeof dpObj["fontFamily"] === "string" ? dpObj["fontFamily"] : "Segoe UI";
+        const barValueFontColor: string = readColor(dpObj["fontColor"]) || "#ffffff";
+        let barWidth = Math.min(60, Math.max(10, Math.floor(width / Math.max(1, categoryCount) * 0.6)));
+        if (objects && objects["dataPoint"] && typeof (objects["dataPoint"] as any)["barWidth"] === "number") {
+            barWidth = (objects["dataPoint"] as any)["barWidth"];
+        }
+        let barSpacing = Math.round(barWidth * 0.6);
+        try {
+            const fs = this.formattingSettings as any;
+            if (fs && fs.dataPointCard && fs.dataPointCard.barSpacing && typeof fs.dataPointCard.barSpacing.value === "number") {
+                barSpacing = Math.round(fs.dataPointCard.barSpacing.value);
+            } else if (objects && objects["dataPoint"] && typeof (objects["dataPoint"] as any)["barSpacing"] === "number") {
+                barSpacing = (objects["dataPoint"] as any)["barSpacing"];
+            }
+        } catch { /* fallback */ }
+        return { fillColor, colorNon, barRadius, fontSize, barValueFontSize, barValueFontFamily, barValueFontColor, valueDisplayMode, decimalPlaces, barWidth, barSpacing };
+    }
+
+    private getXAxisOptions(objects: powerbi.DataViewObjects | undefined): XAxisOptions {
+        const xAxisObj: any = (objects && objects["xAxis"]) || {};
+        return {
+            showXAxis: typeof xAxisObj["show"] === "boolean" ? xAxisObj["show"] : true,
+            xAxisTitle: typeof xAxisObj["title"] === "string" ? xAxisObj["title"] : "",
+            labelRotation: typeof xAxisObj["labelRotation"] === "number" ? xAxisObj["labelRotation"] : 0,
+            xAxisFontSize: typeof xAxisObj["fontSize"] === "number" ? xAxisObj["fontSize"] : 14,
+            xAxisFontFamily: typeof xAxisObj["fontFamily"] === "string" ? xAxisObj["fontFamily"] : "Segoe UI",
+            xAxisFontColor: readColor(xAxisObj["fontColor"]) || "#888",
+            bottomMargin: typeof xAxisObj["bottomMargin"] === "number" ? Math.max(40, xAxisObj["bottomMargin"]) : 80
+        };
+    }
+
+    private getLayoutOptions(objects: powerbi.DataViewObjects | undefined): LayoutOptions {
+        let showBackground = true, titleText = "DSP", titleFontFamily = "Segoe UI";
+        let titleFontSize = 20, titleFontBold = true, titleFontColor = "#222";
+        if (this.formattingSettings && this.formattingSettings.layoutCard) {
+            const lc = this.formattingSettings.layoutCard;
+            if (lc.showBackground) showBackground = lc.showBackground.value;
+            if (lc.titleText && typeof lc.titleText.value === "string") titleText = lc.titleText.value || "DSP";
+            if (lc.titleFontFamily && typeof lc.titleFontFamily.value === "string") titleFontFamily = lc.titleFontFamily.value || "Segoe UI";
+            if (lc.titleFontSize && typeof lc.titleFontSize.value === "number") titleFontSize = lc.titleFontSize.value || 20;
+            if (lc.titleFontBold && typeof lc.titleFontBold.value === "boolean") titleFontBold = lc.titleFontBold.value;
+            if (lc.titleFontColor) titleFontColor = readColor(lc.titleFontColor.value) || "#222";
+        } else if (objects && objects["layout"]) {
+            const lo = objects["layout"] as any;
+            if (typeof lo["showBackground"] === "boolean") showBackground = lo["showBackground"];
+            if (typeof lo["titleText"] === "string") titleText = lo["titleText"] || "DSP";
+            if (typeof lo["titleFontFamily"] === "string") titleFontFamily = lo["titleFontFamily"] || "Segoe UI";
+            if (typeof lo["titleFontSize"] === "number") titleFontSize = lo["titleFontSize"] || 20;
+            if (typeof lo["titleFontBold"] === "boolean") titleFontBold = lo["titleFontBold"];
+            if (lo["titleFontColor"]) titleFontColor = readColor(lo["titleFontColor"]) || "#222";
+        }
+        return { showBackground, titleText, titleFontFamily, titleFontSize, titleFontBold, titleFontColor };
+    }
+
+    private prepareDataPoints(categories: powerbi.DataViewCategoryColumn, categoryValues: (string | number)[], values: number[]): void {
+        this.dataPoints = categoryValues.map((cat, i) => ({
+            category: cat.toString(),
+            value: values[i],
+            selectionId: this.host.createSelectionIdBuilder().withCategory(categories, i).createSelectionId()
+        }));
+        const areYears = this.dataPoints.every(dp => {
+            const num = parseInt(dp.category);
+            return !isNaN(num) && num >= 1900 && num <= 2100 && dp.category.length === 4;
+        });
+        if (areYears) this.dataPoints.sort((a, b) => parseInt(a.category) - parseInt(b.category));
+    }
+
+    private checkLabelRotation(categories: string[], barWidth: number, barSpacing: number, xAxisFontSize: number, xAxisFontFamily: string): boolean {
+        for (const cat of categories) {
+            const tempText = createSvgElement("text");
+            tempText.setAttribute("font-size", xAxisFontSize.toString());
+            tempText.setAttribute("font-family", xAxisFontFamily);
+            tempText.textContent = cat;
+            tempText.style.visibility = "hidden";
+            this.svg.appendChild(tempText);
+            const textWidth = tempText.getBBox().width;
+            this.svg.removeChild(tempText);
+            if (textWidth > barWidth + barSpacing - 4) return true;
+        }
+        return false;
+    }
+
+    private renderBackgroundRect(svgWidth: number, svgHeight: number, showBackground: boolean, barGroups: SVGGElement[]): void {
+        const bgRect = createSvgElement("rect");
         bgRect.setAttribute("x", "0");
         bgRect.setAttribute("y", "0");
         bgRect.setAttribute("width", svgWidth.toString());
@@ -307,23 +411,20 @@ export class Visual implements IVisual {
         bgRect.addEventListener("click", (event: MouseEvent) => {
             event.stopPropagation();
             this.selectionManager.clear().then(() => {
-                // @ts-ignore
                 this.updateSelection([], barGroups);
-                // Déclencher un événement click sur le SVG pour activer la sélection du visuel (comme le titre)
                 const clickEvent = new MouseEvent("click", { bubbles: true, cancelable: true, view: window });
                 this.svg.dispatchEvent(clickEvent);
             });
         });
-        
-        // Insérer le rectangle en tout premier dans le SVG (derrière tout)
         if (this.svg.firstChild) {
             this.svg.insertBefore(bgRect, this.svg.firstChild);
         } else {
             this.svg.appendChild(bgRect);
         }
+    }
 
-        // Titre (modifiable et stylable)
-        const title = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    private renderTitle(titleText: string, titleFontSize: number, titleFontFamily: string, titleFontBold: boolean, titleFontColor: string): void {
+        const title = createSvgElement("text");
         title.setAttribute("x", "10");
         title.setAttribute("y", "20");
         title.setAttribute("font-size", titleFontSize.toString());
@@ -332,269 +433,254 @@ export class Visual implements IVisual {
         title.setAttribute("fill", titleFontColor);
         title.textContent = titleText;
         this.svg.appendChild(title);
+    }
 
-        // Légende — si narrowMode on la masque (ne pas passer en verticale)
-        const legendGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
-        if (!narrowMode) {
-            // horizontale (ancien comportement)
-            let legendX = 10;
-            const legendY = 30;
-            const legendNon = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-            legendNon.setAttribute("x", legendX.toString());
-            legendNon.setAttribute("y", legendY.toString());
-            legendNon.setAttribute("width", "30");
-            legendNon.setAttribute("height", "12");
-            legendNon.setAttribute("rx", "6");
-            legendNon.setAttribute("fill", colorNon);
-            legendGroup.appendChild(legendNon);
-            const legendNonText = document.createElementNS("http://www.w3.org/2000/svg", "text");
-            legendNonText.setAttribute("x", (legendX + 35).toString());
-            legendNonText.setAttribute("y", (legendY + 10).toString());
-            legendNonText.setAttribute("font-size", "14");
-            legendNonText.setAttribute("fill", "#222");
-            legendNonText.textContent = "Non";
-            legendGroup.appendChild(legendNonText);
-            legendX += 80;
-            const legendOui = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-            legendOui.setAttribute("x", legendX.toString());
-            legendOui.setAttribute("y", legendY.toString());
-            legendOui.setAttribute("width", "30");
-            legendOui.setAttribute("height", "12");
-            legendOui.setAttribute("rx", "6");
-            legendOui.setAttribute("fill", fillColor);
-            legendGroup.appendChild(legendOui);
-            const legendOuiText = document.createElementNS("http://www.w3.org/2000/svg", "text");
-            legendOuiText.setAttribute("x", (legendX + 35).toString());
-            legendOuiText.setAttribute("y", (legendY + 10).toString());
-            legendOuiText.setAttribute("font-size", "14");
-            legendOuiText.setAttribute("fill", "#222");
-            legendOuiText.textContent = "Oui";
-            legendGroup.appendChild(legendOuiText);
+    private renderXAxisTitle(xAxisTitle: string, paddingLeft: number, categoryCount: number, barWidth: number, barSpacing: number, baseY: number, xAxisFontSize: number, xAxisFontColor: string, xAxisFontFamily: string): void {
+        const axisTitle = createSvgElement("text");
+        axisTitle.setAttribute("x", (paddingLeft + (categoryCount * (barWidth + barSpacing) - barSpacing) / 2).toString());
+        axisTitle.setAttribute("y", (baseY + 48).toString());
+        axisTitle.setAttribute("text-anchor", "middle");
+        axisTitle.setAttribute("font-size", xAxisFontSize.toString());
+        axisTitle.setAttribute("fill", xAxisFontColor);
+        axisTitle.setAttribute("font-family", xAxisFontFamily);
+        axisTitle.textContent = xAxisTitle;
+        this.svg.appendChild(axisTitle);
+    }
 
-            this.svg.appendChild(legendGroup);
-        } // else : narrowMode -> ne rien afficher (masqué)
-        this.svg.appendChild(title);
+    private renderLegend(fillColor: string, colorNon: string): SVGGElement {
+        const legendGroup = createSvgElement("g");
+        let legendX = 10;
+        const legendY = 30;
 
-        // defs pour clipPaths (nouveau à chaque update)
-        const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
-        this.svg.appendChild(defs);
+        const legendNon = createSvgElement("rect");
+        legendNon.setAttribute("x", legendX.toString());
+        legendNon.setAttribute("y", legendY.toString());
+        legendNon.setAttribute("width", "30");
+        legendNon.setAttribute("height", "12");
+        legendNon.setAttribute("rx", "6");
+        legendNon.setAttribute("fill", colorNon);
+        legendGroup.appendChild(legendNon);
 
-        // Dessin des barres
-        const barGroups: SVGGElement[] = [];
-        
-        // ÉTAPE 1: Déterminer si AU MOINS UN label nécessite une rotation
-        let needsRotation = false;
-        const availableSpaceForLabel = bottomMargin - 25; // espace disponible pour le label (en retirant padding)
-        
-        sortedCategories.forEach((cat, i) => {
-            const tempText = document.createElementNS("http://www.w3.org/2000/svg", "text");
-            tempText.setAttribute("font-size", xAxisFontSize.toString());
-            tempText.setAttribute("font-family", xAxisFontFamily);
-            tempText.textContent = cat;
-            tempText.style.visibility = "hidden";
-            this.svg.appendChild(tempText);
-            const textWidth = tempText.getBBox().width;
-            this.svg.removeChild(tempText);
-            
-            const maxLabelWidth = barWidth + barSpacing - 4;
-            // Si le texte dépasse l'espace horizontal OU si labels multiples se chevauchent
-            if (textWidth > maxLabelWidth) {
-                needsRotation = true;
-            }
+        const legendNonText = createSvgElement("text");
+        legendNonText.setAttribute("x", (legendX + 35).toString());
+        legendNonText.setAttribute("y", (legendY + 10).toString());
+        legendNonText.setAttribute("font-size", "14");
+        legendNonText.setAttribute("fill", "#222");
+        legendNonText.textContent = "Non";
+        legendGroup.appendChild(legendNonText);
+
+        legendX += 80;
+
+        const legendOui = createSvgElement("rect");
+        legendOui.setAttribute("x", legendX.toString());
+        legendOui.setAttribute("y", legendY.toString());
+        legendOui.setAttribute("width", "30");
+        legendOui.setAttribute("height", "12");
+        legendOui.setAttribute("rx", "6");
+        legendOui.setAttribute("fill", fillColor);
+        legendGroup.appendChild(legendOui);
+
+        const legendOuiText = createSvgElement("text");
+        legendOuiText.setAttribute("x", (legendX + 35).toString());
+        legendOuiText.setAttribute("y", (legendY + 10).toString());
+        legendOuiText.setAttribute("font-size", "14");
+        legendOuiText.setAttribute("fill", "#222");
+        legendOuiText.textContent = "Oui";
+        legendGroup.appendChild(legendOuiText);
+
+        return legendGroup;
+    }
+
+    private renderBar(
+        ctx: BarRenderContext,
+        barGroups: SVGGElement[],
+        selectionIds: ISelectionId[]
+    ): SVGGElement {
+        const {
+            cat, index, rawValue, x, barWidth, barSpacing, baseY, maxBarHeight, barRadius,
+            fontSize, fillColor, colorNon, barValueFontSize, barValueFontFamily, barValueFontColor,
+            narrowMode, showXAxis, xAxisFontSize, xAxisFontFamily, xAxisFontColor,
+            labelRotation, needsRotation, availableSpaceForLabel, formatBarValue, defs
+        } = ctx;
+
+        const percentValue = rawValue * 100;
+        const formattedValue = formatBarValue(rawValue);
+        const rawBarHeight = Math.max(0, Math.min(1, rawValue)) * maxBarHeight;
+        const visibleHeight = rawBarHeight > 0 ? rawBarHeight : 0;
+        const effectiveRx = Math.min(barRadius, Math.floor(barWidth / 2));
+
+        const barGroup = createSvgElement("g");
+        barGroup.style.cursor = "pointer";
+        barGroup.setAttribute("data-index", index.toString());
+
+        barGroup.addEventListener("contextmenu", (event: MouseEvent) => {
+            event.preventDefault();
+            this.selectionManager.showContextMenu(selectionIds[index], { x: event.clientX, y: event.clientY });
         });
 
-        sortedCategories.forEach((cat, i) => {
-            const rawValue = sortedValues[i] || 0;
-            const percentValue = rawValue * 100;
-            const formattedValue = formatBarValue(rawValue);
-            const x = paddingLeft + i * (barWidth + barSpacing);
+        const barNon = createSvgElement("rect");
+        barNon.setAttribute("x", x.toString());
+        barNon.setAttribute("y", (baseY - maxBarHeight).toString());
+        barNon.setAttribute("width", barWidth.toString());
+        barNon.setAttribute("height", maxBarHeight.toString());
+        barNon.setAttribute("rx", effectiveRx.toString());
+        barNon.setAttribute("fill", colorNon);
+        barGroup.appendChild(barNon);
 
-            const rawBarHeight = Math.max(0, Math.min(1, rawValue)) * maxBarHeight;
-            const visibleHeight = rawBarHeight > 0 ? rawBarHeight : 0;
-
-            const effectiveRx = Math.min(barRadius, Math.floor(barWidth / 2));
-
-            const barGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
-            barGroup.style.cursor = "pointer";
-            barGroup.setAttribute("data-index", i.toString());
-
-            // Gestion du menu contextuel (clic droit)
-            barGroup.addEventListener("contextmenu", (event: MouseEvent) => {
-                event.preventDefault();
-                this.selectionManager.showContextMenu(selectionIds[i], {
-                    x: event.clientX,
-                    y: event.clientY
-                });
-            });
-
-            // background rounded rect
-            const barNon = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-            barNon.setAttribute("x", x.toString());
-            barNon.setAttribute("y", (baseY - maxBarHeight).toString());
-            barNon.setAttribute("width", barWidth.toString());
-            barNon.setAttribute("height", maxBarHeight.toString());
-            barNon.setAttribute("rx", effectiveRx.toString());
-            barNon.setAttribute("fill", colorNon);
-            barGroup.appendChild(barNon);
-
-            if (percentValue < 35 && visibleHeight > 0) {
-                // clip + fill so fill respects rounded background shape
-                const clipId = `clip-bar-${i}-${Date.now()}`;
-                const clipPath = document.createElementNS("http://www.w3.org/2000/svg", "clipPath");
-                clipPath.setAttribute("id", clipId);
-                const clipRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-                clipRect.setAttribute("x", x.toString());
-                clipRect.setAttribute("y", (baseY - maxBarHeight).toString());
-                clipRect.setAttribute("width", barWidth.toString());
-                clipRect.setAttribute("height", maxBarHeight.toString());
-                clipRect.setAttribute("rx", effectiveRx.toString());
-                clipPath.appendChild(clipRect);
-                defs.appendChild(clipPath);
-
-                const fillRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-                fillRect.setAttribute("x", x.toString());
-                fillRect.setAttribute("y", (baseY - visibleHeight).toString());
-                fillRect.setAttribute("width", barWidth.toString());
-                fillRect.setAttribute("height", visibleHeight.toString());
-                fillRect.setAttribute("fill", fillColor);
-                fillRect.setAttribute("clip-path", `url(#${clipId})`);
-                barGroup.appendChild(fillRect);
-
-                // Texte toujours au milieu de l'arrière-plan en narrowMode
-                const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
-                const txtX = (x + barWidth / 2);
-                const txtY = narrowMode ? (baseY - (maxBarHeight / 2)) : (baseY - (maxBarHeight / 2));
-                txt.setAttribute("x", txtX.toString());
-                txt.setAttribute("y", txtY.toString());
-                txt.setAttribute("text-anchor", "middle");
-                txt.setAttribute("dominant-baseline", "middle");
-                txt.setAttribute("font-size", barValueFontSize.toString());
-                txt.setAttribute("fill", barValueFontColor);
-                txt.setAttribute("font-family", barValueFontFamily);
-                txt.textContent = formattedValue;
-                if (narrowMode) {
-                    txt.setAttribute("transform", `rotate(-90 ${txtX} ${txtY})`);
-                }
-                barGroup.appendChild(txt);
-            } else if (visibleHeight > 0) {
-                const barOui = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-                const barHeight = visibleHeight;
-                barOui.setAttribute("x", x.toString());
-                barOui.setAttribute("y", (baseY - barHeight).toString());
-                barOui.setAttribute("width", barWidth.toString());
-                barOui.setAttribute("height", barHeight.toString());
-                const rxForOui = Math.min(effectiveRx, Math.floor(barHeight / 2));
-                barOui.setAttribute("rx", rxForOui.toString());
-                barOui.setAttribute("fill", fillColor);
-                barGroup.appendChild(barOui);
-
-                // Texte au milieu de l'arrière-plan en narrowMode, sinon au milieu de la barre
-                const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
-                const txtX = (x + barWidth / 2);
-                const txtY = narrowMode ? (baseY - (maxBarHeight / 2)) : (baseY - (barHeight / 2));
-                txt.setAttribute("x", txtX.toString());
-                txt.setAttribute("y", txtY.toString());
-                txt.setAttribute("text-anchor", "middle");
-                txt.setAttribute("dominant-baseline", "middle");
-                const innerFontSize = narrowMode ? fontSize : ((barHeight < fontSize) ? Math.max(8, Math.round(barHeight * 0.6)) : fontSize);
-                txt.setAttribute("font-size", innerFontSize.toString());
-                txt.setAttribute("fill", barValueFontColor);
-                txt.setAttribute("font-family", barValueFontFamily);
-                txt.textContent = formattedValue;
-                if (narrowMode) {
-                    txt.setAttribute("transform", `rotate(-90 ${txtX} ${txtY})`);
-                }
-                barGroup.appendChild(txt);
-            } else {
-                const marker = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-                marker.setAttribute("x", (x + 2).toString());
-                marker.setAttribute("y", (baseY - 2).toString());
-                marker.setAttribute("width", (barWidth - 4).toString());
-                marker.setAttribute("height", "2");
-                marker.setAttribute("fill", colorNon);
-                barGroup.appendChild(marker);
-            }
-
-            // year label — tous identiques (rotation si AU MOINS 1 nécessite)
-            if (showXAxis) {
-                const yearTxt = document.createElementNS("http://www.w3.org/2000/svg", "text");
-                const yearX = (x + barWidth / 2);
-                const yearY = (baseY + 20);
-                yearTxt.setAttribute("x", yearX.toString());
-                yearTxt.setAttribute("y", yearY.toString());
-                yearTxt.setAttribute("font-size", xAxisFontSize.toString());
-                yearTxt.setAttribute("fill", xAxisFontColor);
-                yearTxt.setAttribute("font-family", xAxisFontFamily);
-
-                let displayText = cat;
-                const maxLabelWidth = barWidth + barSpacing - 4;
-                
-                // Mesurer largeur texte pour troncature éventuelle
-                const tempText = document.createElementNS("http://www.w3.org/2000/svg", "text");
-                tempText.setAttribute("font-size", xAxisFontSize.toString());
-                tempText.setAttribute("font-family", xAxisFontFamily);
-                tempText.textContent = cat;
-                tempText.style.visibility = "hidden";
-                this.svg.appendChild(tempText);
-                const textWidth = tempText.getBBox().width;
-                this.svg.removeChild(tempText);
-
-                if (needsRotation || labelRotation !== 0) {
-                    // Rotation appliquée à TOUS (décision globale)
-                    const rotation = labelRotation !== 0 ? labelRotation : 45;
-                    yearTxt.setAttribute("text-anchor", "end");
-                    yearTxt.setAttribute("transform", `rotate(${-rotation} ${yearX} ${yearY})`);
-                    
-                    // Tronquer si texte trop long même en rotation
-                    // Utiliser bottomMargin pour calculer l'espace disponible en rotation
-                    const maxRotatedLength = Math.floor(availableSpaceForLabel * 1.2); // approximation pour texte en diagonale
-                    if (textWidth > maxRotatedLength && cat.length > 10) {
-                        const charsToKeep = Math.floor(cat.length * (maxRotatedLength / textWidth)) - 3;
-                        displayText = cat.substring(0, Math.max(1, charsToKeep)) + "...";
-                    }
-                } else {
-                    // Mode horizontal : tronquer si nécessaire
-                    yearTxt.setAttribute("text-anchor", "middle");
-                    if (textWidth > maxLabelWidth && cat.length > 3) {
-                        let truncateLength = Math.floor(cat.length * (maxLabelWidth / textWidth)) - 3;
-                        truncateLength = Math.max(1, truncateLength);
-                        displayText = cat.substring(0, truncateLength) + "...";
-                    }
-                }
-
-                yearTxt.textContent = displayText;
-                barGroup.appendChild(yearTxt);
-            }
-
-            // click selection
-            barGroup.addEventListener("click", (event) => {
-                event.stopPropagation();
-                const mouseEvent = event as MouseEvent;
-                const isCtrlPressed = mouseEvent.ctrlKey || mouseEvent.metaKey;
-                this.selectionManager.select(selectionIds[i], isCtrlPressed)
-                    .then((ids: ISelectionId[]) => {
-                        this.updateSelection(ids, barGroups);
-                    });
-            });
-
-            barGroups.push(barGroup);
-            this.svg.appendChild(barGroup);
-        });
-
-        // dessiner le titre de l'axe X si demandé
-        if (showXAxis && xAxisTitle) {
-            const axisTitle = document.createElementNS("http://www.w3.org/2000/svg", "text");
-            axisTitle.setAttribute("x", (paddingLeft + (sortedCategories.length * (barWidth + barSpacing) - barSpacing) / 2).toString());
-            axisTitle.setAttribute("y", (baseY + 48).toString());
-            axisTitle.setAttribute("text-anchor", "middle");
-            axisTitle.setAttribute("font-size", (xAxisFontSize).toString());
-            axisTitle.setAttribute("fill", xAxisFontColor);
-            axisTitle.setAttribute("font-family", xAxisFontFamily);
-            axisTitle.textContent = xAxisTitle;
-            this.svg.appendChild(axisTitle);
+        if (percentValue < 35 && visibleHeight > 0) {
+            this.renderLowValueBar(barGroup, defs, index, x, baseY, barWidth, maxBarHeight, visibleHeight, effectiveRx, fillColor, formattedValue, barValueFontSize, barValueFontFamily, barValueFontColor, narrowMode);
+        } else if (visibleHeight > 0) {
+            this.renderHighValueBar(barGroup, x, baseY, barWidth, visibleHeight, maxBarHeight, effectiveRx, fillColor, formattedValue, fontSize, barValueFontSize, barValueFontFamily, barValueFontColor, narrowMode);
+        } else {
+            const marker = createSvgElement("rect");
+            marker.setAttribute("x", (x + 2).toString());
+            marker.setAttribute("y", (baseY - 2).toString());
+            marker.setAttribute("width", (barWidth - 4).toString());
+            marker.setAttribute("height", "2");
+            marker.setAttribute("fill", colorNon);
+            barGroup.appendChild(marker);
         }
 
-        // (Le clic de fond est maintenant géré par le rectangle bgRect)
+        if (showXAxis) {
+            this.renderXAxisLabel(barGroup, cat, x, barWidth, barSpacing, baseY, xAxisFontSize, xAxisFontFamily, xAxisFontColor, labelRotation, needsRotation, availableSpaceForLabel);
+        }
+
+        barGroup.addEventListener("click", (event) => {
+            event.stopPropagation();
+            const mouseEvent = event as MouseEvent;
+            const isCtrlPressed = mouseEvent.ctrlKey || mouseEvent.metaKey;
+            this.selectionManager.select(selectionIds[index], isCtrlPressed)
+                .then((ids: ISelectionId[]) => { this.updateSelection(ids, barGroups); });
+        });
+
+        return barGroup;
+    }
+
+    private renderLowValueBar(
+        barGroup: SVGGElement, defs: SVGDefsElement, index: number, x: number, baseY: number,
+        barWidth: number, maxBarHeight: number, visibleHeight: number, effectiveRx: number,
+        fillColor: string, formattedValue: string, barValueFontSize: number,
+        barValueFontFamily: string, barValueFontColor: string, narrowMode: boolean
+    ): void {
+        const clipId = `clip-bar-${index}-${Date.now()}`;
+        const clipPath = createSvgElement("clipPath");
+        clipPath.setAttribute("id", clipId);
+        const clipRect = createSvgElement("rect");
+        clipRect.setAttribute("x", x.toString());
+        clipRect.setAttribute("y", (baseY - maxBarHeight).toString());
+        clipRect.setAttribute("width", barWidth.toString());
+        clipRect.setAttribute("height", maxBarHeight.toString());
+        clipRect.setAttribute("rx", effectiveRx.toString());
+        clipPath.appendChild(clipRect);
+        defs.appendChild(clipPath);
+
+        const fillRect = createSvgElement("rect");
+        fillRect.setAttribute("x", x.toString());
+        fillRect.setAttribute("y", (baseY - visibleHeight).toString());
+        fillRect.setAttribute("width", barWidth.toString());
+        fillRect.setAttribute("height", visibleHeight.toString());
+        fillRect.setAttribute("fill", fillColor);
+        fillRect.setAttribute("clip-path", `url(#${clipId})`);
+        barGroup.appendChild(fillRect);
+
+        const txt = createSvgElement("text");
+        const txtX = x + barWidth / 2;
+        const txtY = baseY - maxBarHeight / 2;
+        txt.setAttribute("x", txtX.toString());
+        txt.setAttribute("y", txtY.toString());
+        txt.setAttribute("text-anchor", "middle");
+        txt.setAttribute("dominant-baseline", "middle");
+        txt.setAttribute("font-size", barValueFontSize.toString());
+        txt.setAttribute("fill", barValueFontColor);
+        txt.setAttribute("font-family", barValueFontFamily);
+        txt.textContent = formattedValue;
+        if (narrowMode) {
+            txt.setAttribute("transform", `rotate(-90 ${txtX} ${txtY})`);
+        }
+        barGroup.appendChild(txt);
+    }
+
+    private renderHighValueBar(
+        barGroup: SVGGElement, x: number, baseY: number, barWidth: number,
+        visibleHeight: number, maxBarHeight: number, effectiveRx: number, fillColor: string,
+        formattedValue: string, fontSize: number, barValueFontSize: number,
+        barValueFontFamily: string, barValueFontColor: string, narrowMode: boolean
+    ): void {
+        const barHeight = visibleHeight;
+        const barOui = createSvgElement("rect");
+        barOui.setAttribute("x", x.toString());
+        barOui.setAttribute("y", (baseY - barHeight).toString());
+        barOui.setAttribute("width", barWidth.toString());
+        barOui.setAttribute("height", barHeight.toString());
+        const rxForOui = Math.min(effectiveRx, Math.floor(barHeight / 2));
+        barOui.setAttribute("rx", rxForOui.toString());
+        barOui.setAttribute("fill", fillColor);
+        barGroup.appendChild(barOui);
+
+        const txt = createSvgElement("text");
+        const txtX = x + barWidth / 2;
+        const txtY = narrowMode ? (baseY - maxBarHeight / 2) : (baseY - barHeight / 2);
+        txt.setAttribute("x", txtX.toString());
+        txt.setAttribute("y", txtY.toString());
+        txt.setAttribute("text-anchor", "middle");
+        txt.setAttribute("dominant-baseline", "middle");
+        const innerFontSize = narrowMode ? fontSize : ((barHeight < fontSize) ? Math.max(8, Math.round(barHeight * 0.6)) : fontSize);
+        txt.setAttribute("font-size", innerFontSize.toString());
+        txt.setAttribute("fill", barValueFontColor);
+        txt.setAttribute("font-family", barValueFontFamily);
+        txt.textContent = formattedValue;
+        if (narrowMode) {
+            txt.setAttribute("transform", `rotate(-90 ${txtX} ${txtY})`);
+        }
+        barGroup.appendChild(txt);
+    }
+
+    private renderXAxisLabel(
+        barGroup: SVGGElement, cat: string, x: number, barWidth: number, barSpacing: number,
+        baseY: number, xAxisFontSize: number, xAxisFontFamily: string, xAxisFontColor: string,
+        labelRotation: number, needsRotation: boolean, availableSpaceForLabel: number
+    ): void {
+        const yearTxt = createSvgElement("text");
+        const yearX = x + barWidth / 2;
+        const yearY = baseY + 20;
+        yearTxt.setAttribute("x", yearX.toString());
+        yearTxt.setAttribute("y", yearY.toString());
+        yearTxt.setAttribute("font-size", xAxisFontSize.toString());
+        yearTxt.setAttribute("fill", xAxisFontColor);
+        yearTxt.setAttribute("font-family", xAxisFontFamily);
+
+        let displayText = cat;
+        const maxLabelWidth = barWidth + barSpacing - 4;
+
+        const tempText = createSvgElement("text");
+        tempText.setAttribute("font-size", xAxisFontSize.toString());
+        tempText.setAttribute("font-family", xAxisFontFamily);
+        tempText.textContent = cat;
+        tempText.style.visibility = "hidden";
+        this.svg.appendChild(tempText);
+        const textWidth = tempText.getBBox().width;
+        this.svg.removeChild(tempText);
+
+        if (needsRotation || labelRotation !== 0) {
+            const rotation = labelRotation !== 0 ? labelRotation : 45;
+            yearTxt.setAttribute("text-anchor", "end");
+            yearTxt.setAttribute("transform", `rotate(${-rotation} ${yearX} ${yearY})`);
+            const maxRotatedLength = Math.floor(availableSpaceForLabel * 1.2);
+            if (textWidth > maxRotatedLength && cat.length > 10) {
+                const charsToKeep = Math.floor(cat.length * (maxRotatedLength / textWidth)) - 3;
+                displayText = cat.substring(0, Math.max(1, charsToKeep)) + "...";
+            }
+        } else {
+            yearTxt.setAttribute("text-anchor", "middle");
+            if (textWidth > maxLabelWidth && cat.length > 3) {
+                let truncateLength = Math.floor(cat.length * (maxLabelWidth / textWidth)) - 3;
+                truncateLength = Math.max(1, truncateLength);
+                displayText = cat.substring(0, truncateLength) + "...";
+            }
+        }
+
+        yearTxt.textContent = displayText;
+        barGroup.appendChild(yearTxt);
     }
 
     private updateSelection(selectedIds: ISelectionId[], barGroups: SVGGElement[]) {

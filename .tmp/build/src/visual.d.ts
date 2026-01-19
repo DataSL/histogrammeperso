@@ -17,10 +17,24 @@ export declare class Visual implements IVisual {
     private isLicenseUnsupportedEnv;
     private isNotificationDisplayed;
     private dataPoints;
+    private events;
     constructor(options: VisualConstructorOptions);
     private checkLicense;
     private notifyLicenseRequired;
     update(options: VisualUpdateOptions): void;
+    private getDataPointOptions;
+    private getXAxisOptions;
+    private getLayoutOptions;
+    private prepareDataPoints;
+    private checkLabelRotation;
+    private renderBackgroundRect;
+    private renderTitle;
+    private renderXAxisTitle;
+    private renderLegend;
+    private renderBar;
+    private renderLowValueBar;
+    private renderHighValueBar;
+    private renderXAxisLabel;
     private updateSelection;
     getFormattingModel(): powerbi.visuals.FormattingModel;
 }

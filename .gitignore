@@ -1,0 +1,9 @@
+# Power BI Custom Visuals - Required Ignore Files
+node_modules
+dist
+.tmp
+
+# Additional common files to ignore
+*.pbiviz
+.vscode/settings.json
+package-lock.json

@@ -135,7 +135,7 @@ export class Visual implements IVisual {
         this.tooltipService = this.host.tooltipService;
         
         // Init license check
-       // this.checkLicense();
+        this.checkLicense();
 
         // Container scrollable pour le SVG
         this.container = document.createElement('div');

@@ -42,6 +42,8 @@ import IVisual = powerbi.extensibility.visual.IVisual;
 import ISelectionManager = powerbi.extensibility.ISelectionManager;
 import ISelectionId = powerbi.visuals.ISelectionId;
 import IVisualEventService = powerbi.extensibility.IVisualEventService;
+import ITooltipService = powerbi.extensibility.ITooltipService;
+import VisualTooltipDataItem = powerbi.extensibility.VisualTooltipDataItem;
 import { VisualFormattingSettingsModel } from "./settings";
 
 interface DataPointOptions {
@@ -121,6 +123,7 @@ export class Visual implements IVisual {
     private isNotificationDisplayed: boolean = false;
     private dataPoints: Array<{ category: string; value: number; selectionId: ISelectionId }>;
     private events: IVisualEventService;
+    private tooltipService: ITooltipService;
 
     constructor(options: VisualConstructorOptions) {
         this.formattingSettingsService = new FormattingSettingsService();
@@ -129,9 +132,10 @@ export class Visual implements IVisual {
         this.licenseManager = this.host.licenseManager;
         this.selectionManager = this.host.createSelectionManager();
         this.events = options.host.eventService;
+        this.tooltipService = this.host.tooltipService;
         
         // Init license check
-        this.checkLicense();
+       // this.checkLicense();
 
         // Container scrollable pour le SVG
         this.container = document.createElement('div');
@@ -416,6 +420,10 @@ export class Visual implements IVisual {
                 this.svg.dispatchEvent(clickEvent);
             });
         });
+        bgRect.addEventListener("contextmenu", (event: MouseEvent) => {
+            event.preventDefault();
+            this.selectionManager.showContextMenu({}, { x: event.clientX, y: event.clientY });
+        });
         if (this.svg.firstChild) {
             this.svg.insertBefore(bgRect, this.svg.firstChild);
         } else {
@@ -551,6 +559,44 @@ export class Visual implements IVisual {
             const isCtrlPressed = mouseEvent.ctrlKey || mouseEvent.metaKey;
             this.selectionManager.select(selectionIds[index], isCtrlPressed)
                 .then((ids: ISelectionId[]) => { this.updateSelection(ids, barGroups); });
+        });
+
+        // Tooltip events
+        barGroup.addEventListener("mouseover", (event: MouseEvent) => {
+            const tooltipData: VisualTooltipDataItem[] = [
+                {
+                    displayName: cat,
+                    value: formatBarValue(rawValue)
+                }
+            ];
+            this.tooltipService.show({
+                dataItems: tooltipData,
+                identities: [selectionIds[index]],
+                coordinates: [event.clientX, event.clientY],
+                isTouchEvent: false
+            });
+        });
+
+        barGroup.addEventListener("mousemove", (event: MouseEvent) => {
+            const tooltipData: VisualTooltipDataItem[] = [
+                {
+                    displayName: cat,
+                    value: formatBarValue(rawValue)
+                }
+            ];
+            this.tooltipService.move({
+                dataItems: tooltipData,
+                identities: [selectionIds[index]],
+                coordinates: [event.clientX, event.clientY],
+                isTouchEvent: false
+            });
+        });
+
+        barGroup.addEventListener("mouseout", () => {
+            this.tooltipService.hide({
+                immediately: true,
+                isTouchEvent: false
+            });
         });
 
         return barGroup;

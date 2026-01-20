@@ -18,6 +18,7 @@ export declare class Visual implements IVisual {
     private isNotificationDisplayed;
     private dataPoints;
     private events;
+    private tooltipService;
     constructor(options: VisualConstructorOptions);
     private checkLicense;
     private notifyLicenseRequired;
